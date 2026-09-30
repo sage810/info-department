@@ -29,3 +29,7 @@ Desktop.ini
 *.log
 *.tmp
 *.swp
+# build / deps
+node_modules/
+dist/
+.netlify/

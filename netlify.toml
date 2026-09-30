@@ -1,0 +1,13 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# SPA: 모든 경로를 index.html로 (react-router)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
