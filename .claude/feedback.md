@@ -1426,3 +1426,179 @@
 - 화면: 정보부 업무 관리 · 1280×719
 - 상태: [x] 처리됨 — 위와 같음(관리자 표도 같은 공용 부품이라 함께 적용)
 
+## 2026. 10. 6. 12시 4분 56초 · /
+- 종류: 메모
+- 요소: a.btn.sm
+- 위치: div#root > div.app > header.topbar > div.topbar-strip:nth-of-type(1) > a.btn.sm
+- 메모: 누르면 https://docs.google.com/spreadsheets/d/1kAap725TFUSdJYkPYBRV3bddZXdn7I-UxHF2NjzJ3ac/edit?gid=1967437725#gid=1967437725 로 연결
+- 화면: 정보부 업무 관리 · 1280×719
+- 상태: [x] 처리됨 — 데이터(시트 링크 탭)라 코드 수정 안 함, 키별 URL 표로 정리해 전달
+
+## 2026. 10. 6. 12시 5분 24초 · /
+- 종류: 메모
+- 요소: a.link-chip:nth-of-type(1)  (글자: "대여")
+- 위치: div.content.fade > section.card:nth-of-type(3) > ul.sheet-rows > li.sheet-row:nth-of-type(1) > div.link-chips > a.link-chip:nth-of-type(1)
+- 메모: 누르면 연결 https://docs.google.com/spreadsheets/d/1kAap725TFUSdJYkPYBRV3bddZXdn7I-UxHF2NjzJ3ac/edit?gid=1123971576#gid=1123971576
+- 화면: 정보부 업무 관리 · 1280×719
+- 상태: [x] 처리됨 — 데이터(시트 링크 탭)라 코드 수정 안 함, 키별 URL 표로 정리해 전달
+
+## 2026. 10. 6. 12시 5분 39초 · /
+- 종류: 메모
+- 요소: a.link-chip:nth-of-type(2)  (글자: "메뉴얼")
+- 위치: div.content.fade > section.card:nth-of-type(3) > ul.sheet-rows > li.sheet-row:nth-of-type(1) > div.link-chips > a.link-chip:nth-of-type(2)
+- 메모: 누르면 연결 https://docs.google.com/spreadsheets/d/1kAap725TFUSdJYkPYBRV3bddZXdn7I-UxHF2NjzJ3ac/edit?gid=2045118370#gid=2045118370
+- 화면: 정보부 업무 관리 · 1280×719
+- 상태: [x] 처리됨 — 데이터(시트 링크 탭)라 코드 수정 안 함, 키별 URL 표로 정리해 전달
+
+## 2026. 10. 6. 12시 5분 51초 · /
+- 종류: 메모
+- 요소: a.link-chip:nth-of-type(3)  (글자: "에듀테크")
+- 위치: div.content.fade > section.card:nth-of-type(3) > ul.sheet-rows > li.sheet-row:nth-of-type(1) > div.link-chips > a.link-chip:nth-of-type(3)
+- 메모: 누르면 연결 https://docs.google.com/spreadsheets/d/1kAap725TFUSdJYkPYBRV3bddZXdn7I-UxHF2NjzJ3ac/edit?gid=582994925#gid=582994925
+- 화면: 정보부 업무 관리 · 1280×719
+- 상태: [x] 처리됨 — 데이터(시트 링크 탭)라 코드 수정 안 함, 키별 URL 표로 정리해 전달
+
+## 2026. 10. 6. 12시 6분 6초 · /
+- 종류: 메모
+- 요소: a.link-chip:nth-of-type(4)  (글자: "링크")
+- 위치: div.content.fade > section.card:nth-of-type(3) > ul.sheet-rows > li.sheet-row:nth-of-type(1) > div.link-chips > a.link-chip:nth-of-type(4)
+- 메모: 누르면 연결 https://docs.google.com/spreadsheets/d/1kAap725TFUSdJYkPYBRV3bddZXdn7I-UxHF2NjzJ3ac/edit?gid=906667530#gid=906667530
+- 화면: 정보부 업무 관리 · 1280×719
+- 상태: [x] 처리됨 — 데이터(시트 링크 탭)라 코드 수정 안 함, 키별 URL 표로 정리해 전달
+
+## 2026. 10. 6. 12시 6분 20초 · /
+- 종류: 메모
+- 요소: a.link-chip:nth-of-type(1)  (글자: "반별TV")
+- 위치: div.content.fade > section.card:nth-of-type(3) > ul.sheet-rows > li.sheet-row:nth-of-type(2) > div.link-chips > a.link-chip:nth-of-type(1)
+- 메모: 누르면 연결 https://docs.google.com/spreadsheets/d/1kAap725TFUSdJYkPYBRV3bddZXdn7I-UxHF2NjzJ3ac/edit?gid=460638722#gid=460638722
+- 화면: 정보부 업무 관리 · 1280×719
+- 상태: [x] 처리됨 — 데이터(시트 링크 탭)라 코드 수정 안 함, 키별 URL 표로 정리해 전달
+
+## 2026. 10. 6. 12시 6분 31초 · /
+- 종류: 메모
+- 요소: a.link-chip:nth-of-type(2)  (글자: "반별AS")
+- 위치: div.content.fade > section.card:nth-of-type(3) > ul.sheet-rows > li.sheet-row:nth-of-type(2) > div.link-chips > a.link-chip:nth-of-type(2)
+- 메모: 누르면 연결 https://docs.google.com/spreadsheets/d/1kAap725TFUSdJYkPYBRV3bddZXdn7I-UxHF2NjzJ3ac/edit?gid=756994223#gid=756994223
+- 화면: 정보부 업무 관리 · 1280×719
+- 상태: [x] 처리됨 — 데이터(시트 링크 탭)라 코드 수정 안 함, 키별 URL 표로 정리해 전달
+
+## 2026. 10. 6. 12시 6분 41초 · /
+- 종류: 메모
+- 요소: a.link-chip:nth-of-type(3)  (글자: "태블릿보관함")
+- 위치: div.content.fade > section.card:nth-of-type(3) > ul.sheet-rows > li.sheet-row:nth-of-type(2) > div.link-chips > a.link-chip:nth-of-type(3)
+- 메모: 누르면 연결 https://docs.google.com/spreadsheets/d/1kAap725TFUSdJYkPYBRV3bddZXdn7I-UxHF2NjzJ3ac/edit?gid=1352424297#gid=1352424297
+- 화면: 정보부 업무 관리 · 1280×719
+- 상태: [x] 처리됨 — 데이터(시트 링크 탭)라 코드 수정 안 함, 키별 URL 표로 정리해 전달
+
+## 2026. 10. 6. 12시 6분 53초 · /
+- 종류: 메모
+- 요소: a.link-chip:nth-of-type(4)  (글자: "AS기록")
+- 위치: div.content.fade > section.card:nth-of-type(3) > ul.sheet-rows > li.sheet-row:nth-of-type(2) > div.link-chips > a.link-chip:nth-of-type(4)
+- 메모: 누르면 연결 https://docs.google.com/spreadsheets/d/1kAap725TFUSdJYkPYBRV3bddZXdn7I-UxHF2NjzJ3ac/edit?gid=657834925#gid=657834925
+- 화면: 정보부 업무 관리 · 1280×719
+- 상태: [x] 처리됨 — 데이터(시트 링크 탭)라 코드 수정 안 함, 키별 URL 표로 정리해 전달
+
+## 2026. 10. 6. 12시 7분 5초 · /
+- 종류: 메모
+- 요소: a.link-chip:nth-of-type(1)  (글자: "전자기기")
+- 위치: div.content.fade > section.card:nth-of-type(3) > ul.sheet-rows > li.sheet-row:nth-of-type(3) > div.link-chips > a.link-chip:nth-of-type(1)
+- 메모: 누르면 연결 https://docs.google.com/spreadsheets/d/1kAap725TFUSdJYkPYBRV3bddZXdn7I-UxHF2NjzJ3ac/edit?gid=1171978699#gid=1171978699
+- 화면: 정보부 업무 관리 · 1280×719
+- 상태: [x] 처리됨 — 데이터(시트 링크 탭)라 코드 수정 안 함, 키별 URL 표로 정리해 전달
+
+## 2026. 10. 6. 12시 7분 20초 · /
+- 종류: 메모
+- 요소: a.link-chip:nth-of-type(2)  (글자: "전자기기_개별")
+- 위치: div.content.fade > section.card:nth-of-type(3) > ul.sheet-rows > li.sheet-row:nth-of-type(3) > div.link-chips > a.link-chip:nth-of-type(2)
+- 메모: 누르면 연결 https://docs.google.com/spreadsheets/d/1kAap725TFUSdJYkPYBRV3bddZXdn7I-UxHF2NjzJ3ac/edit?gid=1628181846#gid=1628181846
+- 화면: 정보부 업무 관리 · 1280×719
+- 상태: [x] 처리됨 — 데이터(시트 링크 탭)라 코드 수정 안 함, 키별 URL 표로 정리해 전달
+
+## 2026. 10. 6. 12시 7분 29초 · /
+- 종류: 메모
+- 요소: a.link-chip:nth-of-type(3)  (글자: "보유현황_제출본")
+- 위치: div.content.fade > section.card:nth-of-type(3) > ul.sheet-rows > li.sheet-row:nth-of-type(3) > div.link-chips > a.link-chip:nth-of-type(3)
+- 메모: 누르면 연결 https://docs.google.com/spreadsheets/d/1kAap725TFUSdJYkPYBRV3bddZXdn7I-UxHF2NjzJ3ac/edit?gid=666261095#gid=666261095
+- 화면: 정보부 업무 관리 · 1280×719
+- 상태: [x] 처리됨 — 데이터(시트 링크 탭)라 코드 수정 안 함, 키별 URL 표로 정리해 전달
+
+## 2026. 10. 6. 12시 7분 42초 · /
+- 종류: 메모
+- 요소: a.link-chip:nth-of-type(1)  (글자: "교사goedu")
+- 위치: div.content.fade > section.card:nth-of-type(3) > ul.sheet-rows > li.sheet-row:nth-of-type(4) > div.link-chips > a.link-chip:nth-of-type(1)
+- 메모: 누르면 연결 https://docs.google.com/spreadsheets/d/1kAap725TFUSdJYkPYBRV3bddZXdn7I-UxHF2NjzJ3ac/edit?gid=354379754#gid=354379754
+- 화면: 정보부 업무 관리 · 1280×719
+- 상태: [x] 처리됨 — 데이터(시트 링크 탭)라 코드 수정 안 함, 키별 URL 표로 정리해 전달
+
+## 2026. 10. 6. 12시 7분 54초 · /
+- 종류: 메모
+- 요소: a.link-chip:nth-of-type(2)  (글자: "학생goedu")
+- 위치: div.content.fade > section.card:nth-of-type(3) > ul.sheet-rows > li.sheet-row:nth-of-type(4) > div.link-chips > a.link-chip:nth-of-type(2)
+- 메모: 누르면 연결 https://docs.google.com/spreadsheets/d/1kAap725TFUSdJYkPYBRV3bddZXdn7I-UxHF2NjzJ3ac/edit?gid=544101048#gid=544101048
+- 화면: 정보부 업무 관리 · 1280×719
+- 상태: [x] 처리됨 — 데이터(시트 링크 탭)라 코드 수정 안 함, 키별 URL 표로 정리해 전달
+
+## 2026. 10. 6. 12시 8분 9초 · /
+- 종류: 메모
+- 요소: a.link-chip:nth-of-type(1)  (글자: "교직원")
+- 위치: div.content.fade > section.card:nth-of-type(3) > ul.sheet-rows > li.sheet-row:nth-of-type(5) > div.link-chips > a.link-chip:nth-of-type(1)
+- 메모: 누르면 연결 https://docs.google.com/spreadsheets/d/1kAap725TFUSdJYkPYBRV3bddZXdn7I-UxHF2NjzJ3ac/edit?gid=142560455#gid=142560455
+- 화면: 정보부 업무 관리 · 1280×719
+- 상태: [x] 처리됨 — 데이터(시트 링크 탭)라 코드 수정 안 함, 키별 URL 표로 정리해 전달
+
+## 2026. 10. 6. 12시 8분 20초 · /
+- 종류: 메모
+- 요소: a.link-chip:nth-of-type(2)  (글자: "학생")
+- 위치: div.content.fade > section.card:nth-of-type(3) > ul.sheet-rows > li.sheet-row:nth-of-type(5) > div.link-chips > a.link-chip:nth-of-type(2)
+- 메모: 누르면 연결 https://docs.google.com/spreadsheets/d/1kAap725TFUSdJYkPYBRV3bddZXdn7I-UxHF2NjzJ3ac/edit?gid=142560455#gid=142560455
+- 화면: 정보부 업무 관리 · 1280×719
+- 상태: [x] 처리됨 — 데이터(시트 링크 탭)라 코드 수정 안 함, 키별 URL 표로 정리해 전달
+
+## 2026. 10. 6. 12시 8분 29초 · /
+- 종류: 메모
+- 요소: a.link-chip:nth-of-type(3)  (글자: "학급")
+- 위치: div.content.fade > section.card:nth-of-type(3) > ul.sheet-rows > li.sheet-row:nth-of-type(5) > div.link-chips > a.link-chip:nth-of-type(3)
+- 메모: 누르면 연결 https://docs.google.com/spreadsheets/d/1kAap725TFUSdJYkPYBRV3bddZXdn7I-UxHF2NjzJ3ac/edit?gid=1065398665#gid=1065398665
+- 화면: 정보부 업무 관리 · 1280×719
+- 상태: [x] 처리됨 — 데이터(시트 링크 탭)라 코드 수정 안 함, 키별 URL 표로 정리해 전달
+
+## 2026. 10. 6. 12시 8분 41초 · /
+- 종류: 메모
+- 요소: a.link-chip:nth-of-type(4)  (글자: "사이버지킴이")
+- 위치: div.content.fade > section.card:nth-of-type(3) > ul.sheet-rows > li.sheet-row:nth-of-type(5) > div.link-chips > a.link-chip:nth-of-type(4)
+- 메모: 누르면 연결 https://docs.google.com/spreadsheets/d/1kAap725TFUSdJYkPYBRV3bddZXdn7I-UxHF2NjzJ3ac/edit?gid=498576785#gid=498576785
+- 화면: 정보부 업무 관리 · 1280×719
+- 상태: [x] 처리됨 — 데이터(시트 링크 탭)라 코드 수정 안 함, 키별 URL 표로 정리해 전달
+
+## 2026. 10. 6. 12시 9분 14초 · /
+- 종류: 메모
+- 요소: a.link-chip:nth-of-type(1)  (글자: "노트북")
+- 위치: div.content.fade > section.card:nth-of-type(3) > ul.sheet-rows > li.sheet-row:nth-of-type(6) > div.link-chips > a.link-chip:nth-of-type(1)
+- 메모: 누르면 연결 https://docs.google.com/spreadsheets/d/1kAap725TFUSdJYkPYBRV3bddZXdn7I-UxHF2NjzJ3ac/edit?gid=1628181846#gid=1628181846
+- 화면: 정보부 업무 관리 · 1280×719
+- 상태: [x] 처리됨 — 데이터(시트 링크 탭)라 코드 수정 안 함, 키별 URL 표로 정리해 전달
+
+## 2026. 10. 6. 12시 10분 1초 · /
+- 종류: 메모
+- 요소: a.link-chip:nth-of-type(2)  (글자: "보유태블릿")
+- 위치: div.content.fade > section.card:nth-of-type(3) > ul.sheet-rows > li.sheet-row:nth-of-type(6) > div.link-chips > a.link-chip:nth-of-type(2)
+- 메모: 누르면 연결 https://docs.google.com/spreadsheets/d/1kAap725TFUSdJYkPYBRV3bddZXdn7I-UxHF2NjzJ3ac/edit?gid=1628181846#gid=1628181846
+- 화면: 정보부 업무 관리 · 1280×719
+- 상태: [x] 처리됨 — 데이터(시트 링크 탭)라 코드 수정 안 함, 키별 URL 표로 정리해 전달
+
+## 2026. 10. 6. 12시 10분 32초 · /
+- 종류: 메모
+- 요소: a.link-chip:nth-of-type(3)  (글자: "MDM 관리 시스템")
+- 위치: main#main > div.content.fade > section.card:nth-of-type(2) > div.link-chips > a.link-chip:nth-of-type(3)
+- 메모: 누르면 연결 https://mdm.goe.go.kr/onm/mas/login/loginExt.html#first
+- 화면: 정보부 업무 관리 · 1280×719
+- 상태: [x] 처리됨 — 데이터(시트 링크 탭)라 코드 수정 안 함, 키별 URL 표로 정리해 전달
+
+## 2026. 10. 6. 12시 10분 54초 · /
+- 종류: 메모
+- 요소: a.link-chip:nth-of-type(2)  (글자: "GSMS")
+- 위치: main#main > div.content.fade > section.card:nth-of-type(2) > div.link-chips > a.link-chip:nth-of-type(2)
+- 메모: 누르면 연결 https://gsms.goe.go.kr/
+- 화면: 정보부 업무 관리 · 1280×719
+- 상태: [x] 처리됨 — 데이터(시트 링크 탭)라 코드 수정 안 함, 키별 URL 표로 정리해 전달
+
