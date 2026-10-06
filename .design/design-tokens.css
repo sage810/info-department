@@ -1,6 +1,7 @@
 /* ==========================================================================
-   Design Tokens — 수행평가 웹앱 (student score webapp)에서 쓴 값 그대로 정리
-   다른 프로젝트에서: 이 파일을 <style>에 붙여넣거나 <link>로 불러온 뒤, 아래 변수만 참조한다.
+   Design Tokens — 정보부 업무 관리 웹앱
+   기준은 src/styles.css 의 :root 이고, 이 파일은 같은 값을 다른 도구·프로젝트에서 쓰기 쉽게 옮겨 둔 것이다.
+   값을 바꿀 때는 styles.css 를 먼저 고치고 이 파일(과 design-tokens.json)에 다시 옮긴다. (마지막 정리: 2026-10-06)
    폰트는 Pretendard(CDN)를 함께 불러와야 한다:
    <link rel="stylesheet" as="style" crossorigin
      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -8,14 +9,15 @@
 
 :root{
   /* ---------- 색상: 브랜드 ---------- */
-  --purple:        #7132f5;               /* 포인트(버튼·배지·강조) */
-  --purple-dark:   #5741d8;               /* 포인트 hover, 보라색 글씨 */
-  --purple-tint:   rgba(133,91,251,0.12); /* 보라 배경 틴트(선택·포커스 링) */
+  --purple:        #7132f5;               /* 포인트(버튼·로고·강조) */
+  --purple-dark:   #5741d8;               /* 포인트 hover, 보라색 글씨·링크 */
+  --purple-deep:   #4533b5;               /* 기본 버튼을 누르고 있을 때(:active) */
+  --purple-tint:   rgba(133,91,251,0.12); /* 보라 배경 틴트(선택된 메뉴·배지) */
   --purple-tint-strong: rgba(133,91,251,0.20); /* 틴트 hover */
 
   /* ---------- 색상: 글자 ---------- */
   --ink:           #101114;               /* 본문 */
-  --ink-soft:      #686b82;               /* 보조 글자 (흰 배경 대비 4.5:1 이상) */
+  --ink-soft:      #686b82;               /* 보조 글자 */
   --ink-faint:     #727589;               /* 안내 문구(placeholder) 전용 */
 
   /* ---------- 색상: 면·선 ---------- */
@@ -23,155 +25,70 @@
   --surface:       #ffffff;               /* 카드·입력칸 */
   --surface-alt:   #fafafc;               /* 표 머리글·보조 패널 */
   --surface-hover: #fbfaff;               /* 표 행 hover */
-  --neutral-fill:  #f1f1f6;               /* 보조 버튼·'예정' 배경 */
-  --border:        #dedee5;               /* 테두리·구분선 */
-  --dot-inactive:  #d4d4de;               /* 캐러셀 점(비활성) */
+  --neutral-fill:  #f1f1f6;               /* 보조 면·메뉴 hover */
+  --border:        #dedee5;               /* 카드·표 테두리, 구분선 */
+  --border-ctl:    #8f8fa0;               /* 입력칸·선택 상자·보조 버튼 경계 전용 (흰색 대비 3:1 이상) */
 
   /* ---------- 색상: 상태 ---------- */
-  --green:         #149e61;               /* 완료 (테두리·아이콘) */
-  --green-ink:     #0b6b41;               /* 완료 글씨 (초록 틴트 위에서 대비 확보) */
+  --green:         #149e61;               /* 성공·완료 */
+  --green-ink:     #0b6b41;               /* 초록 틴트 위의 글씨 (대비 확보) */
   --green-tint:    rgba(20,158,97,0.14);
-  --red:           #c62f42;               /* 에러·결시·삭제 */
+  --red:           #c62f42;               /* 오류·삭제 */
+  --red-dark:      #a02033;               /* 삭제 버튼 글자색, 누르고 있을 때 테두리 */
   --red-tint:      rgba(198,47,66,0.10);
 
-  /* 의미별 별칭: 상태 이름으로 쓰고 싶을 때 */
-  --status-done-bg:       var(--green-tint);
-  --status-done-border:   var(--green);
-  --status-done-text:     var(--green-ink);
-  --status-current-bg:    var(--purple);        /* 이번 수행: 가장 진하게 */
-  --status-current-border:var(--purple-dark);
-  --status-current-text:  #ffffff;
-  --status-upcoming-bg:   var(--neutral-fill);
-  --status-upcoming-border:var(--border);
-  --status-upcoming-text: var(--ink-soft);
-  --status-absent-bg:     var(--red-tint);
-  --status-absent-text:   var(--red);
-
-  /* ---------- 상단 고정 바(어두운 헤더) ---------- */
+  /* ---------- 색상: 상단 어두운 띠 ---------- */
   --topbar-bg:        var(--ink);
-  --topbar-text:      #ffffff;
-  --topbar-text-dim:  rgba(255,255,255,0.60);   /* 비활성 메뉴 */
-  --topbar-line:      rgba(255,255,255,0.40);   /* 로그아웃 버튼 테두리 */
+  --topbar-text:      #fff;
+  --topbar-text-dim:  rgba(255,255,255,0.60);
+  --topbar-line:      rgba(255,255,255,0.40);
 
   /* ---------- 타이포 ---------- */
   --font-sans: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-
-  --fs-2xs: 10px;    /* 배점 등 아주 작은 보조 글자 */
-  --fs-xs:  11.5px;  /* 표 머리글 */
-  --fs-sm:  12.5px;  /* 라벨·힌트·작은 버튼 */
-  --fs-md:  13.5px;  /* 버튼·보조 본문 */
-  --fs-base:14px;    /* 입력칸·본문 */
-  --fs-lg:  16px;    /* 상단 바 제목 */
-  --fs-xl:  19px;    /* 인증 화면 제목 */
-  --fs-2xl: 22px;    /* 학생 화면 타이틀 */
-  --fs-total: 34px;  /* 결과 총점 */
-
-  --fw-regular: 400;
-  --fw-medium:  600;
-  --fw-bold:    700;
-  --fw-heavy:   800;
-
-  --lh-tight:  1.3;
-  --lh-normal: 1.5;
-  --tracking-title: -0.3px;   /* 큰 제목 자간 */
-
-  /* ---------- 간격: 4px 배수 (2px 반 단계 허용) ---------- */
-  --space-0-5: 2px;
-  --space-1:   4px;
-  --space-2:   8px;
-  --space-3:   12px;
-  --space-4:   16px;
-  --space-5:   20px;
-  --space-6:   24px;
-  --space-8:   32px;
-  --space-10:  40px;
-  --page-gutter: 16px;        /* 화면 양옆 최소 여백 */
+  --fs-xs:    12px;                       /* 최소 글자 크기 */
+  --fs-sm:    12.5px;
+  --fs-md:    13.5px;                     /* 버튼 글자 */
+  --fs-base:  14px;                       /* 본문 */
+  --fs-lg:    16px;
+  --fs-xl:    19px;
+  --fs-2xl:   22px;
+  --fs-total: 34px;
 
   /* ---------- 모서리 ---------- */
-  --radius-sm:   6px;    /* 작은 링크·포커스 영역 */
-  --radius-ctl:  10px;   /* 입력칸·버튼·드롭다운 */
-  --radius-md:   12px;   /* 패널·목록 상자 */
-  --radius-lg:   20px;   /* 카드 */
-  --radius-pill: 999px;  /* 알약(배지·학년 탭·점) */
+  --radius-sm:   6px;
+  --radius-ctl:  10px;                    /* 버튼·입력칸 */
+  --radius-md:   12px;
+  --radius-lg:   20px;                    /* 카드·펼침 메뉴 */
+  --radius-pill: 999px;                   /* 알약(상단 카드·메뉴 항목·칩) */
 
-  /* ---------- 그림자 ---------- */
-  --shadow-card:   0 4px 24px rgba(16,17,20,0.06);
-  --shadow-bar:    0 -6px 20px rgba(16,17,20,0.06);   /* 하단 고정 바 */
-  --focus-ring:    0 0 0 3px var(--purple-tint);      /* 입력칸 포커스 */
+  /* ---------- 그림자·초점 ---------- */
+  --shadow-card: 0 4px 24px rgba(16,17,20,0.06);
+  --focus-ring:  0 0 0 2px var(--surface), 0 0 0 4px var(--ink); /* 키보드 초점(버튼·입력칸 공통) */
 
-  /* ---------- 선·크기 ---------- */
-  --border-width:  1px;
-  --border-width-ctl: 1.5px;   /* 입력칸·버튼 테두리 */
-  --touch-min:     44px;       /* 버튼·탭 최소 터치 영역 */
-  --touch-min-small: 24px;     /* 체크박스·칩 × 버튼 최소 */
-  --content-max-student: 520px;/* 학생 화면 카드 폭 */
-  --content-max-admin:   980px;/* 교사 화면 본문 폭 */
+  /* ---------- 크기 ---------- */
+  --touch-min:   44px;                    /* 버튼·메뉴 터치 영역 최소 (.btn.sm 만 32px) */
+  --content-max: 980px;                   /* 본문 최대 폭 */
+  --strip-h:     32px;                    /* 상단 어두운 띠 높이 */
+  --card-h:      68px;                    /* 상단 흰 카드(브랜드+메뉴) 높이 */
+  --topbar-h:    calc(var(--strip-h) + var(--card-h));
 
-  /* ---------- 움직임 ---------- */
-  --ease: ease;
-  --dur-fast: .15s;    /* hover·포커스 */
-  --dur-base: .35s;    /* 화면 전환(fadeUp) */
-
-  /* ---------- 겹침 순서 ---------- */
-  --z-table-head: 2;
-  --z-topbar:     25;
-  --z-bottom-bar: 30;
+  /* ---------- 모션 ---------- */
+  --dur-fast: .15s;
+  --dur-base: .35s;
 }
 
-/* 화면 폭 기준 (CSS 변수는 미디어쿼리에 못 써서 값만 기록):
-   1280px 이하 = 상단 바 여백 축소 + 교사 화면 좌측 사이드바(248px)를 떠 있는 도크(164px, 아이콘 + 이름)로 축소,
-   720px 이하 = 하단 바 세로 배치,
-   640px 이하 = 입력 줄이 세로로 쌓임 */
-
-/* ---------- 공통 리셋·바탕 (선택 사항) ---------- */
-*{ box-sizing:border-box; }
-html,body{ margin:0; padding:0; }
-body{
-  font-family: var(--font-sans);
-  color: var(--ink);
-  background: var(--bg);
-}
-
-/* 학생 화면처럼 은은한 보라 빛 번짐 배경을 쓰고 싶을 때 body에 덧붙인다 */
-.bg-glow{
-  background:
-    radial-gradient(circle at 12% 8%,  rgba(113,50,245,0.08), transparent 40%),
-    radial-gradient(circle at 90% 85%, rgba(113,50,245,0.06), transparent 45%),
-    var(--bg);
-}
-
-/* ---------- 자주 쓴 컴포넌트 레시피 (토큰만으로 조합) ---------- */
-.card{
-  background: var(--surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  border: var(--border-width) solid var(--border);
-}
-.field-input{                     /* input / select / textarea 공통 */
-  width:100%; padding:10px 12px; font-size:var(--fs-base); font-family:inherit;
-  border: var(--border-width-ctl) solid var(--border); border-radius: var(--radius-ctl);
-  background: var(--surface); color: var(--ink);
-  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
-}
-.field-input:focus{ outline:none; border-color: var(--purple); box-shadow: var(--focus-ring); }
-.field-input::placeholder{ color: var(--ink-faint); }
-.btn-primary{
-  padding:10px 20px; font-size:var(--fs-md); font-weight:var(--fw-bold); font-family:inherit;
-  color:#fff; background: var(--purple); border:none; border-radius: var(--radius-ctl); cursor:pointer;
-}
-.btn-primary:hover{ background: var(--purple-dark); }
-.btn-primary:disabled{ opacity:.6; cursor:not-allowed; }
-.btn-secondary{
-  padding:10px 18px; font-size:var(--fs-md); font-weight:var(--fw-bold); font-family:inherit;
-  color: var(--ink); background: var(--neutral-fill); border:none; border-radius: var(--radius-ctl); cursor:pointer;
-}
-.pill-tab{                        /* 학년 탭·반 버튼 */
-  padding:8px 16px; border-radius: var(--radius-pill); border: var(--border-width-ctl) solid var(--border);
-  background: var(--surface); color: var(--ink-soft); font-size: var(--fs-sm); font-weight: var(--fw-bold); cursor:pointer;
-}
-.pill-tab:hover{ border-color: var(--purple); color: var(--purple-dark); }
-.pill-tab.active{ background: var(--purple); border-color: var(--purple); color:#fff; }
-.badge-error{
-  display:flex; align-items:center; gap:6px; padding:9px 12px; border-radius: var(--radius-ctl);
-  font-size: var(--fs-sm); font-weight: var(--fw-bold); color: var(--red); background: var(--red-tint);
+/* ==========================================================================
+   참고용 (styles.css 의 :root 에는 없는 값)
+   - 시트 탭 영역 색: shared/sheet-schema.js 의 TAB_GROUPS 와 같은 값. 홈의 "구글 시트 바로가기" 줄 색(--c)으로 쓰인다.
+     알약(.link-chip)은 이 색으로 바탕 color-mix(var(--c) 10%, #fff), 테두리 color-mix(var(--c) 35%, #fff),
+     hover 시 바탕 22%·테두리 var(--c). 글자는 늘 --ink.
+   - 반응형 기준(max-width): 1000px 메뉴를 햄버거로 접음 / 720px 표 도구줄이 세로로 쌓임 / 640px 모바일 / 520px 띠 글자 숨김. 640 초과는 min-width:641px.
+   ========================================================================== */
+:root{
+  --area-school:   #4285F4;  /* 학교 정보 */
+  --area-goedu:    #12B5CB;  /* Goedu */
+  --area-class:    #34A853;  /* 반별 관리 */
+  --area-device:   #FA7B17;  /* 전자기기 */
+  --area-ops:      #A142F4;  /* 운영 */
+  --area-other:    #9AA0A6;  /* 기타·안내 */
 }
