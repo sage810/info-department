@@ -83,10 +83,13 @@ export async function runSync(deps: SyncDeps = {}) {
   };
 
   try {
+    // 시트 읽기는 서로 상관없어서 한꺼번에 시작한다(하나씩 읽으면 17개 탭에 20초 넘게 걸려 Netlify 함수 제한 시간을 넘는다).
+    // 읽기 실패는 여기서 던지지 않고 담아 두었다가, 아래 반복에서 그 탭만 건너뛴다.
+    const reads = new Map(TABLES.map((t) => [t.tab, read(t.tab).then((v) => ({ v }), (e: any) => ({ e }))]));
     for (const t of TABLES) {
-      let sheet: { headers: string[]; rows: string[][] };
-      try { sheet = await read(t.tab); }
-      catch (e: any) { await skip(t, 'read', `탭을 읽지 못했습니다: ${e.message}`); continue; }
+      const got: any = await reads.get(t.tab);
+      if (got.e) { await skip(t, 'read', `탭을 읽지 못했습니다: ${got.e.message}`); continue; }
+      const sheet: { headers: string[]; rows: string[][] } = got.v;
       const { headers, rows } = sheet;
       const idx = (h: string) => headers.indexOf(h);
 

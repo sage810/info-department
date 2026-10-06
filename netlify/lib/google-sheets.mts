@@ -9,9 +9,16 @@ const SHEET_ID = () => process.env.GOOGLE_SHEET_ID!;
 const API = 'https://sheets.googleapis.com/v4/spreadsheets';
 
 let cached: { token: string; exp: number } | null = null;
+let inflight: Promise<string> | null = null;
 
-export async function accessToken(): Promise<string> {
-  if (cached && cached.exp > Date.now() + 60_000) return cached.token;
+/** 동시에 여러 번 불려도 토큰은 한 번만 받는다(탭을 한꺼번에 읽을 때 토큰 요청이 겹치지 않게). */
+export function accessToken(): Promise<string> {
+  if (cached && cached.exp > Date.now() + 60_000) return Promise.resolve(cached.token);
+  inflight ??= fetchToken().finally(() => { inflight = null; });
+  return inflight;
+}
+
+async function fetchToken(): Promise<string> {
   const sa = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON ?? '{}');
   if (!sa.client_email || !sa.private_key) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON 이 없거나 형식이 틀립니다.');
   const now = Math.floor(Date.now() / 1000);
