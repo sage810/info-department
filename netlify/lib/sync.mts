@@ -11,10 +11,16 @@
  * 시트를 잘못 고쳤을 때 DB 가 비워지지 않게, 아래 경우엔 그 탭만 건너뛰고(skipped) 나머지는 계속한다.
  *   read: 탭을 못 읽음(탭 이름이 바뀜·없음) / headers: 필요한 머리글이 없음 / shrink: 행이 갑자기 크게 줄거나 비었음(force 로 무시)
  * 건너뛴 부모 탭(교직원·학생·학급)은 DB 의 기존 행으로 자연키 조회를 대신한다.
+ * 보유 묶음(devices)과 개별 장비(device_units)는 분류별 탭 여러 개가 한 DB 표를 채운다. 탭마다 따로 검사한다:
+ *   묶음 탭: 물품 분류명이 그 탭의 분류와 다른 줄은 건너뛴다(비어 있으면 그 탭의 분류로 처리). 네 분류 밖은 보유_기타 탭.
+ *   장비 탭: 그 탭의 종류(묶음의 물품 분류명)와 다른 묶음을 적은 줄·묶음을 못 찾은 줄은 건너뛴다.
+ *   두 가지 모두 다른 탭과 ID 가 겹친 줄은 건너뛰고, 건너뛴 줄은 problems 에 남긴다.
+ *   "시트에 없는 행 삭제"와 "줄어듦" 판정도 그 탭의 분류 안에서만 한다. 모든 개별 장비 탭이 정상으로 읽혔을 때만,
+ *   어느 탭에도 없는 장비(묶음이 사라진 장비 등)를 마지막에 정리한다.
  * 동시에 두 번 돌지 않는다: 2분 안에 시작해 아직 안 끝난 기록이 있으면 거절(409).
  */
 import { createHash } from 'node:crypto';
-import { TABLES, SCHOOL_YEAR } from '../../shared/sheet-schema.js';
+import { TABLES, SCHOOL_YEAR, UNIT_TABS, deviceTab } from '../../shared/sheet-schema.js';
 import { readTab, fillIds } from './google-sheets.mts';
 import { adminClient, selectAll } from './supabase-admin.mts';
 
@@ -51,9 +57,12 @@ export async function runSync(deps: SyncDeps = {}) {
   const summary: Record<string, unknown> = {};
   const problems: string[] = [];
   const skipped: Skipped[] = [];
+  const seenByTable = new Map<string, Set<string>>(); // 같은 표를 채우는 탭들이 ID 를 같이 쓰지 못하게(개별 장비)
+  const unitKeep = new Set<string>(); // 개별 장비 탭들에서 살아남은 ID
+  let unitTabsDone = 0;
 
   // 자연키 → id
-  const lookup = { staff: new Map<string, string>(), students: new Map<string, string>(), classrooms: new Map<string, string>() };
+  const lookup = { staff: new Map<string, string>(), students: new Map<string, string>(), classrooms: new Map<string, string>(), batchCategory: new Map<string, string>() };
   const resolve = (ref: string, raw: string, year: number): string | null => {
     const v = raw.trim();
     if (!v) return null;
@@ -69,17 +78,24 @@ export async function runSync(deps: SyncDeps = {}) {
       lookup.students.set(`${o.school_year}|${no}`, String(o.id));
     });
     if (table === 'classrooms') list.forEach((o) => lookup.classrooms.set(`${o.school_year}|${o.grade}-${o.class_no}`, String(o.id)));
+    if (table === 'devices') list.forEach((o) => lookup.batchCategory.set(String(o.id), String(o.item_category ?? '')));
   };
+  // DB 에 있는 행이 이 탭에 속하나(탭이 분류별로 나뉜 표만 의미가 있다). 장비는 묶음의 분류로, 묶음은 자기 분류로 정한다.
+  type TabDef = { tab: string; table: string; unitCategory?: string; deviceCategory?: string };
+  const inTab = (t: TabDef, r: any) => t.unitCategory ? lookup.batchCategory.get(String(r.batch_id)) === t.unitCategory
+    : t.deviceCategory ? deviceTab(String(r.item_category ?? '')) === t.tab : true;
   // 건너뛴 부모 탭: DB 에 있는 행으로 조회를 대신한다(자식 탭의 참조가 끊기지 않게)
-  const lookupFromDb = async (table: string) => {
-    const cols = { staff: 'id,name', students: 'id,school_year,grade,class_no,number', classrooms: 'id,school_year,grade,class_no' }[table];
+  const lookupFromDb = async (t: TabDef) => {
+    const table = t.table;
+    const cols = { staff: 'id,name', students: 'id,school_year,grade,class_no,number', classrooms: 'id,school_year,grade,class_no', devices: 'id,item_category' }[table];
     if (!cols) return;
-    addLookup(table, await selectAll(sb, table, cols));
+    addLookup(table, (await selectAll(sb, table, cols)).filter((r: any) => inTab(t, r))); // 묶음은 이 탭 분류 것만(다른 탭은 자기 차례에 채운다)
   };
-  const skip = async (t: { tab: string; table: string }, reason: Skipped['reason'], detail: string) => {
+  const summaryKey = (t: TabDef) => (t.unitCategory || t.deviceCategory ? `${t.table}:${t.unitCategory ?? t.deviceCategory}` : t.table); // 분류별 탭은 탭마다 따로
+  const skip = async (t: TabDef, reason: Skipped['reason'], detail: string) => {
     skipped.push({ tab: t.tab, reason, detail });
-    summary[t.table] = { skipped: reason };
-    await lookupFromDb(t.table);
+    summary[summaryKey(t)] = { skipped: reason };
+    await lookupFromDb(t);
   };
 
   try {
@@ -98,7 +114,8 @@ export async function runSync(deps: SyncDeps = {}) {
 
       const out: Row[] = [];
       const pendingIds: { rowIdx: number; id: string; raw: string[] }[] = [];
-      const seen = new Set<string>();
+      const seen = seenByTable.get(t.table) ?? new Set<string>();
+      seenByTable.set(t.table, seen);
       const yearCol = t.columns.find((c) => c.key === 'school_year' && !c.nullable);
       let yearFilled = 0; // 학년도 칸이 비어 올해로 채운 줄 수
       rows.forEach((r, rowIdx) => {
@@ -117,6 +134,20 @@ export async function runSync(deps: SyncDeps = {}) {
           else obj[c.key] = raw || null;
         }
         if (yearCol && obj.school_year == null) { obj.school_year = year; yearFilled++; }
+        if (t.deviceCategory) {
+          if (!obj.item_category) obj.item_category = t.deviceCategory; // 분류 칸이 비면 이 탭의 분류(앱의 "추가"는 항상 채워 보낸다)
+          if (deviceTab(String(obj.item_category)) !== t.tab) {
+            problems.push(`${t.tab}: 행 ${rowIdx + 2} 는 건너뜀 — 물품 분류명 "${obj.item_category}" 은(는) 이 탭이 아니라 ${deviceTab(String(obj.item_category))} 탭에 적어야 합니다`);
+            return;
+          }
+        }
+        if (t.unitCategory) {
+          const cat = lookup.batchCategory.get(String(obj.batch_id ?? ''));
+          if (cat !== t.unitCategory) {
+            problems.push(`${t.tab}: 행 ${rowIdx + 2} 는 건너뜀 — 묶음 "${obj.batch_id ?? ''}" ${cat ? `은(는) "${cat}" 묶음이라 이 탭(${t.unitCategory})에 둘 수 없습니다 (${UNIT_TABS[cat] ?? '개별 장비 탭 없음'} 탭으로 옮기세요)` : '을(를) 보유_* 탭에서 찾지 못했습니다'}`);
+            return;
+          }
+        }
         if (!obj.id) {
           const base = `${t.table}-${hash(t.columns.map((c) => c.key && c.key !== 'id' ? String(obj[c.key] ?? '') : '').join('|'))}`;
           let id = base;
@@ -133,7 +164,8 @@ export async function runSync(deps: SyncDeps = {}) {
       });
 
       // 실수로 행이 크게 줄었거나 탭이 비었으면 DB 를 비우지 않는다
-      const existing = await selectAll(sb, t.table, 'id'); // 1000행이 넘어도 전부(안 그러면 시트에서 지운 행이 DB 에 남고 줄어듦 판정도 틀어진다)
+      let existing = await selectAll(sb, t.table, t.unitCategory ? 'id,batch_id' : t.deviceCategory ? 'id,item_category' : 'id'); // 1000행이 넘어도 전부(안 그러면 시트에서 지운 행이 DB 에 남고 줄어듦 판정도 틀어진다)
+      if (t.unitCategory || t.deviceCategory) existing = existing.filter((r: any) => inTab(t, r)); // 이 탭 분류의 행만
       const have = existing.length;
       if (!deps.force && ((have > 0 && out.length === 0) || (have >= SHRINK_MIN_EXISTING && out.length < have * 0.5))) {
         await skip(t, 'shrink', `시트 ${out.length}행 / 지금 DB ${have}행 — 실수로 지워진 건 아닌지 확인하세요`);
@@ -156,6 +188,7 @@ export async function runSync(deps: SyncDeps = {}) {
 
       // 시트에 없는 행 삭제
       const keep = new Set(out.map((o) => String(o.id)));
+      if (t.unitCategory) { out.forEach((o) => unitKeep.add(String(o.id))); unitTabsDone++; }
       const stale = existing.map((e: any) => e.id).filter((id: string) => !keep.has(id));
       for (let i = 0; i < stale.length; i += 200) {
         const { error } = await sb.from(t.table).delete().in('id', stale.slice(i, i + 200));
@@ -168,7 +201,17 @@ export async function runSync(deps: SyncDeps = {}) {
         try { idsFilled = await fill(t.tab, idx('ID'), pendingIds); }
         catch (e: any) { problems.push(`${t.tab}: ID 칸 채우기 실패 → ${e.message}`); }
       }
-      summary[t.table] = { rows: out.length, saved: ok, deleted: stale.length, ...(idsFilled ? { idsFilled } : {}), ...(yearFilled ? { yearFilled } : {}) };
+      summary[summaryKey(t)] = { rows: out.length, saved: ok, deleted: stale.length, ...(idsFilled ? { idsFilled } : {}), ...(yearFilled ? { yearFilled } : {}) };
+    }
+    // 개별 장비 탭이 모두 정상으로 읽혔다면, 어느 탭에도 없는 장비(묶음이 지워진 장비 등)를 정리한다
+    if (unitTabsDone === TABLES.filter((t) => t.unitCategory).length) {
+      const all = await selectAll(sb, 'device_units', 'id');
+      const orphans = all.map((u: any) => String(u.id)).filter((id: string) => !unitKeep.has(id));
+      for (let i = 0; i < orphans.length; i += 200) {
+        const { error } = await sb.from('device_units').delete().in('id', orphans.slice(i, i + 200));
+        if (error) problems.push(`개별 장비 정리 실패 → ${error.message}`);
+      }
+      if (orphans.length) summary.device_units_orphans_deleted = orphans.length;
     }
     summary.skipped = skipped;
     summary.problems = problems.slice(0, 50);

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api, useQuery } from '../../lib/data.js';
-import { DEVICE_USAGES, DEVICE_CATEGORIES, DEVICE_PLACES, CHROMEBOOK_OK, USB_TYPES } from '../../../shared/sheet-schema.js';
+import { DEVICE_USAGES, DEVICE_PLACES, CHROMEBOOK_OK, USB_TYPES, deviceTab } from '../../../shared/sheet-schema.js';
 import DataTable, { ChipToggle, EditSelectCell } from '../../components/DataTable.jsx';
 import * as Ic from '../../components/Icons.jsx';
 import { UnitsCard } from './units.jsx';
@@ -43,7 +43,8 @@ export function InventoryBatches({ category }) {
 
   const col = (k) => {
     if (k === 'usage') return { key: k, header: BATCH_HEAD[k], render: (r, ctx) => <EditSelectCell ctx={ctx} row={r} field="usage" ariaLabel="용도" options={DEVICE_USAGES} other />, filterValue: (r) => r.usage ?? '' };
-    if (k === 'item_category') return { key: k, header: BATCH_HEAD[k], render: (r, ctx) => <EditSelectCell ctx={ctx} row={r} field="item_category" ariaLabel="물품 분류명" options={DEVICE_CATEGORIES} other />, filterValue: (r) => r.item_category ?? '' };
+    // 분류는 시트 탭(보유_*)이 정한다 — 바꾸려면 시트에서 줄을 새 분류의 탭으로 옮겨야 해서 앱에선 고치지 않는다
+    if (k === 'item_category') return { key: k, header: BATCH_HEAD[k], className: 'muted', filterValue: (r) => r.item_category ?? '' };
     if (k === 'place') return { key: k, header: BATCH_HEAD[k], render: (r, ctx) => <EditSelectCell ctx={ctx} row={r} field="place" ariaLabel="설치 장소" options={[['', '—'], ...DEVICE_PLACES.map((p) => [p, p])]} />, filterValue: (r) => r.place ?? '' };
     if (k === 'usb_type') return { key: k, header: BATCH_HEAD[k], render: (r, ctx) => <EditSelectCell ctx={ctx} row={r} field="usb_type" ariaLabel="USB줄 타입" options={USB_TYPES} other />, filterValue: (r) => r.usb_type ?? '' };
     if (k === 'chromebook_ok') return { key: k, header: BATCH_HEAD[k], render: (r, ctx) => <EditSelectCell ctx={ctx} row={r} field="chromebook_ok" ariaLabel="크롬북 가능 여부" options={[['', '—'], ...CHROMEBOOK_OK.map((v) => [v, v])]} />, filterValue: (r) => r.chromebook_ok ?? '' };
@@ -67,11 +68,11 @@ export function InventoryBatches({ category }) {
         searchKeys={['usage', 'manufacturer', 'model', 'os', 'memo']} searchPlaceholder="예: 교원용, 삼성"
         tableTop={<ChipToggle options={chips} on={on} onChange={setOn} />}
         emptyText={`${category} 묶음이 없습니다. '추가'로 새로 만들 수 있습니다.`}
-        table="devices" reload={q.reload} sheetTab="전자기기" sheetInTop showCount={false}
+        table="devices" reload={q.reload} sheetTab={deviceTab(category)} sheetInTop showCount={false}
         crud={{ add: true, edit: true, remove: true, defaults: { item_category: category }, addTitle: `${category} 묶음 추가`,
           fields: ADD_KEYS[category].map(addField),
           rowLabel: (r) => [r.usage, r.manufacturer, r.model].filter(Boolean).join(' ') || category,
-          confirmDelete: (r) => `'${[r.usage, r.manufacturer, r.model].filter(Boolean).join(' ') || category}' 묶음을 삭제할까요?\n- 시트 원본(전자기기 탭)에서도 이 행이 지워집니다.\n- 개별 장비가 연결돼 있으면 지워지지 않습니다(개별 장비를 먼저 삭제).\n- 전체 보유 현황 집계에서도 빠집니다. 폐기한 묶음이라면 삭제 대신 '처분일'을 적어 두세요.\n되돌릴 수 없습니다.` }} />
+          confirmDelete: (r) => `'${[r.usage, r.manufacturer, r.model].filter(Boolean).join(' ') || category}' 묶음을 삭제할까요?\n- 시트 원본(${deviceTab(category)} 탭)에서도 이 행이 지워집니다.\n- 개별 장비가 연결돼 있으면 지워지지 않습니다(개별 장비를 먼저 삭제).\n- 전체 보유 현황 집계에서도 빠집니다. 폐기한 묶음이라면 삭제 대신 '처분일'을 적어 두세요.\n되돌릴 수 없습니다.` }} />
       {UNITS_FOR.has(category) && (
         <UnitsCard category={category} batches={(q.data ?? []).filter((r) => r.item_category === category)} unitsFor={unitsFor} setUnitsFor={setUnitsFor} reloadBatches={q.reload} />
       )}

@@ -7,7 +7,7 @@ import ExcelJS from 'exceljs';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { TABLES, ITEM_TYPES, MANUAL_CATEGORIES, LINK_GROUPS, studentNo, classroomKey, TAB_GROUPS, GUIDE_TAB, GUIDE_TAB_COLOR, GUIDE_MARKER } from '../shared/sheet-schema.js';
+import { TABLES, ITEM_TYPES, MANUAL_CATEGORIES, LINK_GROUPS, studentNo, classroomKey, TAB_GROUPS, deviceTab, GUIDE_TAB, GUIDE_TAB_COLOR, GUIDE_MARKER } from '../shared/sheet-schema.js';
 import db from '../src/data/demo.js';
 
 const FONT = { name: 'Arial', size: 10 };
@@ -64,6 +64,10 @@ for (const g of TAB_GROUPS) {
 }
 
 /* ---------- 데이터 탭 ---------- */
+// 보유 묶음은 분류별 탭에, 개별 장비는 묶음의 분류별 탭에 나뉜다
+const batchCategory = Object.fromEntries(db.devices.map((b) => [b.id, b.item_category]));
+const rowsOf = (t) => (t.unitCategory ? db[t.table].filter((u) => batchCategory[u.batch_id] === t.unitCategory)
+  : t.deviceCategory ? db[t.table].filter((b) => deviceTab(b.item_category ?? '') === t.tab) : db[t.table]);
 const groupOf = Object.fromEntries(TAB_GROUPS.flatMap((g) => g.tabs.map((tab) => [tab, g])));
 const ordered = TAB_GROUPS.flatMap((g) => g.tabs).map((tab) => TABLES.find((t) => t.tab === tab));
 for (const t of ordered) {
@@ -75,7 +79,7 @@ for (const t of ordered) {
     width: c.key === 'id' ? 14 : c.wide ? 60 : Math.max(12, c.header.length * 2 + 4),
   }));
 
-  for (const row of db[t.table]) {
+  for (const row of rowsOf(t)) {
     const values = cols.map((c) => {
       if (c.derived) return c.derived(row, db);
       if (c.ref) {
@@ -134,4 +138,4 @@ mkdirSync(new URL('../demo/', import.meta.url), { recursive: true });
 // 인자로 경로를 주면 거기에 만든다(기본 파일이 Excel 에서 열려 있어 덮어쓸 수 없을 때)
 const file = process.argv[2] ? pathToFileURL(resolve(process.argv[2])) : new URL('../demo/정보부_업무관리_데모시트.xlsx', import.meta.url);
 await wb.xlsx.writeFile(file);
-console.log('생성 완료:', decodeURIComponent(file.pathname), TABLES.map((t) => `${t.tab}=${db[t.table].length}`).join(', '));
+console.log('생성 완료:', decodeURIComponent(file.pathname), TABLES.map((t) => `${t.tab}=${rowsOf(t).length}`).join(', '));

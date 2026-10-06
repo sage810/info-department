@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { api, useQuery } from '../../lib/data.js';
+import { UNIT_TABS } from '../../../shared/sheet-schema.js';
 import DataTable, { ChipToggle } from '../../components/DataTable.jsx';
 import { UNIT_CHIPS, UnitSortSelect, sortUnits, unitColumns, unitLabel, batchLabel } from './units.jsx';
 
@@ -41,10 +42,10 @@ export function Laptops({ staffOnly }) {
       <DataTable columns={cols} rows={laptopRows} loading={q.loading} error={q.error} filter={(l) => (staffOnly ? !!l.staff_id : !l.staff_id)}
         searchKeys={['asset_no', 'serial_no', 'serial_number', 'user_name', 'ip_address', 'location', 'manufacturer', 'model', 'position', 'department']} searchPlaceholder="예: 10.20.4"
         tableTop={tableTop}
-        table="device_units" reload={q.reload} sheetTab="전자기기_개별" sheetInTop showCount={false}
+        table="device_units" reload={q.reload} sheetTab={UNIT_TABS.노트북} sheetInTop showCount={false}
         crud={{ add: true, edit: true, remove: true, fields: addFields, rowLabel: unitLabel, addTitle: staffOnly ? '교원용 노트북 추가' : '보유 노트북 추가',
           defaults: { status: staffOnly ? '사용 중' : '보유(예비)' },
-          confirmDelete: (r) => `'${unitLabel(r)}' 노트북을 삭제할까요?\n- 시트 원본(전자기기_개별 탭)에서도 이 행이 지워집니다.\n- 노트북 묶음의 개수가 1대 줄어듭니다.\n되돌릴 수 없습니다.` }} />
+          confirmDelete: (r) => `'${unitLabel(r)}' 노트북을 삭제할까요?\n- 시트 원본(${UNIT_TABS.노트북} 탭)에서도 이 행이 지워집니다.\n- 노트북 묶음의 개수가 1대 줄어듭니다.\n되돌릴 수 없습니다.` }} />
     </>
   );
 }

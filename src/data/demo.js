@@ -2,7 +2,7 @@
  * 데모 데이터 (앱 데모 모드 · 데모 시트 · seed.sql 공용)
  * 모든 값은 가짜다. 실제 학교 데이터는 구글 시트에만 두고 동기화한다.
  */
-import { SCHOOL_YEAR, studentNo } from '../../shared/sheet-schema.js';
+import { SCHOOL_YEAR, studentNo, UNIT_TABS, DEVICE_TABS } from '../../shared/sheet-schema.js';
 
 // 결정적 난수 (매번 같은 데모 데이터)
 function rng(seed) {
@@ -342,7 +342,7 @@ export const edutech_items = [
 ].map(([id, category, name, url, shared_id, password, guide, expires_on, price, memo]) => ({ id, category, name, url, shared_id, password, guide, expires_on: expires_on || null, price, memo }));
 
 /* ---------------- 링크 ---------------- */
-const SHEET_TABS = ['교직원', '학생', '학급', '반별TV', '태블릿보관함', '사이버지킴이', '교사goedu', '학생goedu', '노트북', '보유태블릿', '대여', '메뉴얼', '링크', '전자기기', '전자기기_개별', '에듀테크', '보유현황_제출본', '반별AS', 'AS기록', '안내'];
+const SHEET_TABS = ['교직원', '학생', '학급', '반별TV', '태블릿보관함', '사이버지킴이', '교사goedu', '학생goedu', '노트북', '보유태블릿', '대여', '메뉴얼', '링크', ...Object.values(DEVICE_TABS), ...Object.values(UNIT_TABS), '에듀테크', '보유현황_제출본', '반별AS', 'AS기록', '안내'];
 export const links = [
   ...SHEET_TABS.map((tab, i) => ({
     id: `lk-sheet-${i + 1}`, group_name: '시트', key: `sheet:${tab}`, label: `${tab} 시트`,

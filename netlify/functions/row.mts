@@ -11,10 +11,13 @@
  *           그 밖의 표(노트북 사용자·대여 확인자 등)에 적힌 이름은 시트에 그대로 남고, DB 에선 연결만 끊긴다(set null).
  *           다음 동기화 때 "못 찾음" 안내가 problems 에 뜰 수 있지만 오류는 아니다.
  *   students → goedu_student_accounts·cyber_guardians(cascade): 시트의 학생goedu·사이버지킴이 탭 행도 같이 지운다. 대여의 학생 연결은 set null.
+ *
+ * devices(보유 묶음)·device_units(개별 장비)는 분류별 탭에 나뉘어 있다: 추가는 그 분류의 탭 끝에, 삭제는 그 행이 있는 탭에서 한다(lib/device-tabs.mts).
  */
 import { appendRow, deleteRowById } from '../lib/google-sheets.mts';
 import { requireUser, waitForSync, selectAll, json, errorResponse } from '../lib/supabase-admin.mts';
-import { byTable, CRUD_TABLES, prepareNewRow } from '../../shared/sheet-schema.js';
+import { byTable, CRUD_TABLES, prepareNewRow, deviceTab } from '../../shared/sheet-schema.js';
+import { tabForNewUnit, unitTabsToSearch, deviceTabsToSearch, firstTabThatHas } from '../lib/device-tabs.mts';
 
 const bad = (msg: string, status = 400) => Object.assign(new Error(msg), { status });
 
@@ -40,7 +43,7 @@ export default async (req: Request) => {
       if (error || !row) throw bad(error ?? '입력을 확인하세요.');
 
       // 1) 시트 — 머리글 이름으로 칸을 맞춰 한 줄 추가(참조 열은 사람이 적은 자연키 그대로)
-      await appendRow(t.tab, sheet);
+      await appendRow(body.table === 'device_units' ? await tabForNewUnit(sb, row.batch_id) : body.table === 'devices' ? deviceTab(String(row.item_category ?? '')) : t.tab, sheet);
       // 2) DB
       const { error: dbErr } = await sb.from(body.table).upsert(row, { onConflict: 'id' });
       if (dbErr) throw new Error(`시트에는 추가됐지만 DB 저장 실패: ${dbErr.message} (다음 동기화 때 반영됩니다)`);
@@ -69,7 +72,9 @@ export default async (req: Request) => {
         }
       }
       // 1) 시트
-      const found = await deleteRowById(t.tab, id);
+      const found = body.table === 'device_units' ? await firstTabThatHas(await unitTabsToSearch(sb, id), (tab) => deleteRowById(tab, id))
+        : body.table === 'devices' ? await firstTabThatHas(await deviceTabsToSearch(sb, id), (tab) => deleteRowById(tab, id))
+        : await deleteRowById(t.tab, id);
       if (!found) throw bad('시트에서 해당 행(ID)을 찾지 못했습니다. 이미 지워졌거나 시트와 DB 가 어긋나 있을 수 있습니다.', 404);
       // 2) DB (자식 표는 FK 규칙대로 따라간다)
       const { error } = await sb.from(body.table).delete().eq('id', id);

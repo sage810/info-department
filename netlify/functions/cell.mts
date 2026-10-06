@@ -8,10 +8,13 @@
  *   - refKey 가 있는 열(예: 대여자 성함)은 자연키 텍스트 자체를 저장하고, 찾은 id 는 refKey 에 곁들여 넣는다
  *     (못 찾아도 에러 아님 — 교직원이 아닌 사람도 대여자가 될 수 있다).
  *   - refKey 가 없는 순수 ref 열(사용자, 확인자 등)은 반드시 찾아야 하고, 못 찾으면 에러.
+ *   - 보유 묶음(devices)·개별 장비(device_units)는 분류별 탭에 나뉘어 있어, 그 행이 있는 탭에서 고친다(lib/device-tabs.mts).
+ *     행을 다른 분류 탭으로 보내게 되는 수정(장비의 묶음 바꾸기·묶음의 분류 바꾸기)은 막는다 — 시트에서 줄을 옮겨야 하기 때문.
  */
 import { updateFieldsById } from '../lib/google-sheets.mts';
 import { requireUser, waitForSync, selectAll, json, errorResponse } from '../lib/supabase-admin.mts';
 import { byTable, findEditableColumn, resolveRef, refHint, SCHOOL_YEAR } from '../../shared/sheet-schema.js';
+import { batchCategory, unitTabsToSearch, deviceTabsToSearch, firstTabThatHas } from '../lib/device-tabs.mts';
 
 export default async (req: Request) => {
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
@@ -27,6 +30,21 @@ export default async (req: Request) => {
     if (!id) throw Object.assign(new Error('id가 없습니다.'), { status: 400 });
 
     const text = String(value ?? '').trim();
+
+    // 개별 장비 탭 구조를 깨는 수정은 막는다(동기화가 어긋난 종류의 줄을 건너뛰어 화면에서 사라진다)
+    if (table === 'device_units' && field === 'batch_id') {
+      const { data: u } = await sb.from('device_units').select('batch_id').eq('id', id).maybeSingle();
+      const [now, next] = await Promise.all([batchCategory(sb, u?.batch_id), batchCategory(sb, text)]);
+      if (!next) throw Object.assign(new Error(`묶음 "${text}" 을(를) 찾지 못했습니다. 보유_* 탭의 ID 와 똑같이 입력하세요.`), { status: 400 });
+      if (next !== now) throw Object.assign(new Error(`다른 종류(${now ?? '?'} → ${next})의 묶음으로는 바꿀 수 없습니다. 시트에서 이 장비 줄을 ${next} 개별 장비 탭으로 옮기세요.`), { status: 400 });
+    }
+    if (table === 'devices' && field === 'item_category') {
+      const { data: cur } = await sb.from('devices').select('item_category').eq('id', id).maybeSingle();
+      if ((cur?.item_category ?? '') !== text) {
+        throw Object.assign(new Error('물품 분류명은 앱에서 바꿀 수 없습니다. 보유_* 시트에서 이 묶음 줄을 새 분류의 탭으로 옮기고(개별 장비가 있으면 그 줄들도 새 분류의 전자기기_개별_* 탭으로) 동기화하세요.'), { status: 400 });
+      }
+    }
+
     const db: Record<string, unknown> = {};
     let sheetValue: unknown = text;
     let displayValue: unknown = text;
@@ -67,7 +85,10 @@ export default async (req: Request) => {
       db[col.key] = text || null; sheetValue = text; displayValue = text;
     }
 
-    const found = await updateFieldsById(t.tab, id, { [col.header]: sheetValue });
+    const write = (tab: string) => updateFieldsById(tab, id, { [col.header]: sheetValue });
+    const found = table === 'device_units' ? await firstTabThatHas(await unitTabsToSearch(sb, id), write)
+      : table === 'devices' ? await firstTabThatHas(await deviceTabsToSearch(sb, id), write)
+      : await write(t.tab);
     if (!found) throw Object.assign(new Error('시트에서 해당 행(ID)을 찾지 못했습니다.'), { status: 404 });
     const { error } = await sb.from(table).update(db).eq('id', id);
     if (error) throw new Error(`시트에는 반영됐지만 DB 갱신 실패: ${error.message} (다음 동기화 때 반영됩니다)`);

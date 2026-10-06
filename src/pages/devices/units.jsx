@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from 'react';
 import { api, useQuery } from '../../lib/data.js';
-import { UNIT_STATUSES } from '../../../shared/sheet-schema.js';
+import { UNIT_STATUSES, UNIT_TABS } from '../../../shared/sheet-schema.js';
 import DataTable, { ChipToggle, EditSelectCell } from '../../components/DataTable.jsx';
 import * as Ic from '../../components/Icons.jsx';
 
@@ -22,7 +22,7 @@ export function sortUnits(list, by) {
   return list.slice().sort((a, b) => k(a).localeCompare(k(b), 'ko', { numeric: true }));
 }
 /** 개별 장비 표의 열 — 개별 장비 카드와 노트북 화면이 같은 표를 보여 준다. showModel: 유형 전체를 볼 땐 묶음을 알 수 있게 모델명 열을 넣는다. */
-/** 태블릿 충전함의 사양 열 — 표 위 띠의 "함께 볼 정보" 칩으로 켠다. 묶음(전자기기 탭)의 값이라 여기선 보기만 하고, 고치는 건 보유 현황의 묶음 표에서. */
+/** 태블릿 충전함의 사양 열 — 표 위 띠의 "함께 볼 정보" 칩으로 켠다. 묶음(보유_* 탭)의 값이라 여기선 보기만 하고, 고치는 건 보유 현황의 묶음 표에서. */
 const CABINET_SPEC_COLS = [
   { key: 'usb_type', header: 'USB줄 타입' },
   { key: 'reset_method', header: '초기화 방법' },
@@ -140,10 +140,10 @@ export function UnitsCard({ category, batches, unitsFor, setUnitsFor, reloadBatc
         <DataTable columns={cols} rows={rows} loading={q.loading} error={q.error}
             searchKeys={['asset_no', 'serial_no', 'serial_number', 'user_name', 'ip_address', 'location', 'model']} searchPlaceholder="예: 10.20.4"
             emptyText="개별 장비가 없습니다. '추가'로 새로 만들 수 있습니다."
-            table="device_units" reload={reloadAll} sheetTab="전자기기_개별" sheetInTop showCount={false} noCrumb
+            table="device_units" reload={reloadAll} sheetTab={UNIT_TABS[category]} sheetInTop showCount={false} noCrumb
             heading={heading} foldId={panelId} folded={!open} onFoldedChange={(f) => setOpen(!f)} tableTop={sortControl}
             crud={{ add: true, edit: true, remove: true, defaults: batch ? { batch_id: batch.id } : undefined, fields: unitFields, rowLabel: unitLabel, addTitle: '개별 장비 추가',
-              confirmDelete: (r) => `'${unitLabel(r)}' 개별 장비를 삭제할까요?\n- 시트 원본(전자기기_개별 탭)에서도 이 행이 지워집니다.\n- 이 장비의 A/S 기록(AS기록 탭)도 같이 지워집니다.\n- 묶음의 개수가 1대 줄어듭니다.\n되돌릴 수 없습니다.` }} />
+              confirmDelete: (r) => `'${unitLabel(r)}' 개별 장비를 삭제할까요?\n- 시트 원본(${UNIT_TABS[category]} 탭)에서도 이 행이 지워집니다.\n- 이 장비의 A/S 기록(AS기록 탭)도 같이 지워집니다.\n- 묶음의 개수가 1대 줄어듭니다.\n되돌릴 수 없습니다.` }} />
       </div>
     </section>
   );

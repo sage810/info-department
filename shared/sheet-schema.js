@@ -28,11 +28,11 @@ export const SCHOOL_YEAR = 2026;
 export const ITEM_TYPES = ['노트북', '태블릿', '기타'];
 /** 반별 관리 - 반별 TV 브랜드 화면의 TV브랜드 선택지 */
 export const TV_BRANDS = ['삼성', 'DW SUMMUS', 'LG'];
-/** 전자기기 묶음(전자기기 탭)의 고정 선택지. 화면에선 드롭다운 + "기타(직접 입력)", 집계표의 열은 이 값으로 나눈다. */
+/** 전자기기 묶음(보유_* 탭)의 고정 선택지. 화면에선 드롭다운 + "기타(직접 입력)", 집계표의 열은 이 값으로 나눈다. */
 export const DEVICE_USAGES = ['학생용', '교원용', '직원용', '기타'];
 export const DEVICE_CATEGORIES = ['데스크톱', '노트북', '태블릿', '태블릿보관함', '기타'];
 export const DEVICE_PLACES = ['컴퓨터실습실', '컴퓨터실습실 외'];
-/** 태블릿 충전함 사양의 선택지(전자기기 탭의 묶음 열) */
+/** 태블릿 충전함 사양의 선택지(보유_태블릿보관함 탭의 묶음 열) */
 export const CHROMEBOOK_OK = ['가능', '불가'];
 export const USB_TYPES = ['USB-C', 'Micro USB', 'Lightning'];
 export const UNIT_STATUSES = ['사용 중', '보유(예비)', '수리 중', '폐기'];
@@ -94,6 +94,32 @@ export function formatAttachments(list) {
 }
 
 const ID = { key: 'id', header: 'ID', note: '비워 두면 자동 생성' };
+
+/**
+ * 개별 장비 탭: 묶음의 물품 분류명(devices.item_category) → 시트 탭. 개별 장비는 자기 묶음의 분류와 같은 탭에만 적을 수 있다.
+ * 앱·서버가 "이 장비는 어느 탭에 있나"를 알 때(unitTab)는 항상 이 표를 거친다 — byTable.device_units.tab 은 쓰지 않는다.
+ */
+export const UNIT_TABS = {
+  노트북: '전자기기_개별_노트북',
+  태블릿: '전자기기_개별_태블릿',
+  태블릿보관함: '전자기기_개별_태블릿보관함',
+  데스크톱: '전자기기_개별_데스크톱',
+};
+/** 개별 장비가 있는 묶음의 분류가 주어졌을 때 그 장비가 적힌 시트 탭. 개별 장비 탭이 없는 분류면 undefined. */
+export const unitTab = (category) => UNIT_TABS[category];
+
+/**
+ * 보유 묶음(devices) 탭: 묶음의 물품 분류명 → 시트 탭. 네 분류 밖(기타·직접 입력한 분류)은 모두 보유_기타 탭에 적는다.
+ * 묶음은 자기 분류와 같은 탭에만 적을 수 있다. 앱·서버는 "이 묶음은 어느 탭에 있나"를 항상 deviceTab 으로 구한다 — byTable.devices.tab 은 쓰지 않는다.
+ */
+export const DEVICE_TABS = {
+  데스크톱: '보유_데스크톱',
+  노트북: '보유_노트북',
+  태블릿: '보유_태블릿',
+  태블릿보관함: '보유_태블릿보관함',
+  기타: '보유_기타',
+};
+export const deviceTab = (category) => DEVICE_TABS[category] ?? DEVICE_TABS.기타;
 
 /** 동기화 순서 = 배열 순서 (부모 테이블이 먼저) */
 export const TABLES = [
@@ -193,14 +219,17 @@ export const TABLES = [
       { key: 'account', header: '계정' },
     ],
   },
-  {
-    // 전자기기 묶음: 용도 × 물품분류 × 제조사 × 모델 × 취득일자 한 줄. "전체 전자기기 보유 현황" 집계표는 이 표만으로 계산한다.
-    // 개별 장비(아래 표)가 연결된 묶음은 수량을 그 개수로 자동 계산하고, 없으면 수량 칸을 그대로 쓴다.
-    table: 'devices', tab: '전자기기', label: '전자기기 묶음 (보유 현황)',
+  // 전자기기 묶음: 용도 × 물품분류 × 제조사 × 모델 × 취득일자 한 줄. "전체 전자기기 보유 현황" 집계표는 이 표만으로 계산한다.
+  // 개별 장비(아래 표)가 연결된 묶음은 수량을 그 개수로 자동 계산하고, 없으면 수량 칸을 그대로 쓴다.
+  // 분류(물품 분류명)마다 탭이 하나씩이고 열은 모두 같다. DB 표는 devices 하나라서 다섯 항목이 같은 table 을 가리킨다.
+  ...Object.entries(DEVICE_TABS).map(([category, tab]) => ({
+    table: 'devices', tab, deviceCategory: category, label: `전자기기 보유 묶음 — ${category}`,
     columns: [
       ID,
       { key: 'usage', header: '용도', note: DEVICE_USAGES.join(' / ') + ' (그 외는 직접 입력)', options: DEVICE_USAGES, loose: true },
-      { key: 'item_category', header: '물품 분류명', note: DEVICE_CATEGORIES.join(' / ') + ' (그 외는 직접 입력)', options: DEVICE_CATEGORIES, loose: true },
+      category === '기타'
+        ? { key: 'item_category', header: '물품 분류명', note: '기타 또는 직접 입력한 분류(예: 프린터). 데스크톱·노트북·태블릿·태블릿보관함은 각자의 탭에 적는다', options: ['기타'], loose: true }
+        : { key: 'item_category', header: '물품 분류명', note: `이 탭은 "${category}" 묶음만 적는다. 비우면 "${category}" 로 처리`, options: [category] },
       { key: 'place', header: '설치 장소', note: '데스크톱만: ' + DEVICE_PLACES.join(' / '), options: DEVICE_PLACES },
       { key: 'manufacturer', header: '제조사' },
       { key: 'model', header: '모델명' },
@@ -214,13 +243,14 @@ export const TABLES = [
       { key: 'disposed_on', header: '처분일', type: 'date', note: '폐기한 묶음만. 적으면 보유 현황에서 빠짐' },
       { key: 'memo', header: '비고' },
     ],
-  },
-  {
-    // 개별 장비: 한 대마다 한 줄. 묶음 ID 는 전자기기 탭의 ID 열 값을 그대로 적는다. (예전 "노트북 IP대장")
-    table: 'device_units', tab: '전자기기_개별', label: '전자기기 개별 장비 (노트북 IP대장 등)',
+  })),
+  // 개별 장비: 한 대마다 한 줄. 묶음 ID 는 보유_* 탭의 ID 열 값을 그대로 적는다. (예전 "노트북 IP대장")
+  // 종류(묶음의 물품 분류명)마다 탭이 하나씩이고 열은 모두 같다. DB 표는 device_units 하나라서 네 항목이 같은 table 을 가리킨다.
+  ...Object.entries(UNIT_TABS).map(([category, tab]) => ({
+    table: 'device_units', tab, unitCategory: category, label: `전자기기 개별 장비 — ${category}`,
     columns: [
       ID,
-      { key: 'batch_id', header: '묶음 ID', note: '전자기기 탭의 ID (예: dv-021)' },
+      { key: 'batch_id', header: '묶음 ID', note: `보유_${category} 탭의 ID (예: dv-021). 물품 분류명이 "${category}" 인 묶음만 적을 수 있다` },
       { key: 'asset_no', header: '관리번호' },
       { key: 'serial_no', header: '분류번호' },
       { key: 'staff_id', header: '사용자', ref: 'staff', note: '비어 있으면 보유(예비)' },
@@ -232,7 +262,7 @@ export const TABLES = [
       { key: 'memo', header: '비고' },
       { key: 'serial_number', header: '시리얼번호', note: '제조사 시리얼(분류번호와 다름)' },
     ],
-  },
+  })),
   {
     // 날짜 기록: 반별 TV·충전함 비고, 반별 A/S(HDMI·LAN·비고), 장비 A/S 를 한 줄에 하나씩. 앱 화면은 같은 대상·항목의 줄을
     // 날짜순으로 묶어 "2026.10.02 내용" 줄로 보여 준다. 학급 기록은 학년도+학년-반, 장비 기록은 개별 장비 ID 를 적는다.
@@ -242,13 +272,13 @@ export const TABLES = [
       { key: 'logged_on', header: '날짜', type: 'date', note: '비우면 날짜 없는 기록' },
       { key: 'school_year', header: '학년도', type: 'int', nullable: true, note: '학급 기록만' },
       { key: 'classroom_id', header: '학년-반', ref: 'classrooms', note: '학급 기록만 (예: 2-5)' },
-      { key: 'unit_id', header: '개별 장비 ID', note: '장비 A/S 만. 전자기기_개별 탭의 ID (예: lt-005)' },
+      { key: 'unit_id', header: '개별 장비 ID', note: '장비 A/S 만. 전자기기_개별_* 탭의 ID (예: lt-005)' },
       { key: 'item', header: '항목', note: AS_LOG_ITEMS.join(' / '), options: AS_LOG_ITEMS },
       { key: 'body', header: '내용', wide: true },
     ],
   },
   {
-    // 보유 현황 집계표(제출본): 연도마다 구입연도 구간 7줄. 장비 목록(전자기기 탭)과 따로 이 시트에서 관리하며, 앱에서 추가·수정·삭제한다.
+    // 보유 현황 집계표(제출본): 연도마다 구입연도 구간 7줄. 장비 목록(보유_* 탭)과 따로 이 시트에서 관리하며, 앱에서 추가·수정·삭제한다.
     table: 'inventory_snapshots', tab: '보유현황_제출본', label: '전자기기 보유 현황 제출본',
     columns: [
       ID,
@@ -340,7 +370,7 @@ export const TAB_GROUPS = [
   { name: '학교 정보', color: '#4285F4', tabs: ['교직원', '학생', '학급', '사이버지킴이'] },
   { name: 'Goedu', color: '#12B5CB', tabs: ['교사goedu', '학생goedu'] },
   { name: '반별 관리', color: '#34A853', tabs: ['반별TV', '반별AS', '태블릿보관함', 'AS기록'] },
-  { name: '전자기기', color: '#FA7B17', tabs: ['전자기기', '전자기기_개별', '보유현황_제출본'] },
+  { name: '전자기기', color: '#FA7B17', tabs: [...Object.values(DEVICE_TABS), ...Object.values(UNIT_TABS), '보유현황_제출본'] },
   { name: '운영', color: '#A142F4', tabs: ['대여', '메뉴얼', '에듀테크', '링크'] },
 ];
 export const GUIDE_TAB = '안내';
@@ -348,7 +378,8 @@ export const GUIDE_TAB_COLOR = '#9AA0A6';
 /** "안내" 탭에서 탭 목차 블록의 시작을 알리는 칸(A열) 글자 */
 export const GUIDE_MARKER = '탭 목차';
 
-export const byTable = Object.fromEntries(TABLES.map((t) => [t.table, t]));
+// 같은 표를 가리키는 탭이 여럿이면(device_units) 첫 탭의 정의가 들어간다 — 열은 같지만 .tab 은 믿지 말고 unitTab 을 쓴다.
+export const byTable = Object.fromEntries(TABLES.slice().reverse().map((t) => [t.table, t]));
 
 /** 학번 = 학년(1) + 반(2) + 번호(2) → 예: 2학년 10반 11번 = 21011 */
 export function studentNo(s) {

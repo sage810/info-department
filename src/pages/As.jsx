@@ -5,6 +5,7 @@ import PageHeader, { TabCard } from '../components/PageHeader.jsx';
 import DataTable from '../components/DataTable.jsx';
 import { datedColumn } from '../components/DatedMemo.jsx';
 import { ClassAs } from './ClassManage.jsx';
+import { UNIT_TABS } from '../../shared/sheet-schema.js';
 import { unitFieldsFor, unitLabel, batchLabel } from './devices/units.jsx';
 import * as Ic from '../components/Icons.jsx';
 
@@ -35,7 +36,7 @@ export default function As() {
 }
 
 /**
- * 장비 A/S: 그 종류의 개별 장비(시트 "전자기기_개별" 탭)마다 "A/S 기록" 칸 하나(기록은 시트 "AS기록" 탭에 한 줄씩). 날짜 태그 칸이라
+ * 장비 A/S: 그 종류의 개별 장비(시트 "전자기기_개별_종류" 탭)마다 "A/S 기록" 칸 하나(기록은 시트 "AS기록" 탭에 한 줄씩). 날짜 태그 칸이라
  * 고치면 오늘 날짜 줄이 붙고, 날짜가 다르면 줄이 나뉜다. 다른 메뉴처럼 추가·수정·삭제를 한다(같은 개별 장비 데이터라 전자기기 메뉴에도 그대로 반영).
  */
 function UnitAs({ category }) {
@@ -58,9 +59,9 @@ function UnitAs({ category }) {
     <DataTable columns={columns} rows={rows} loading={q.loading} error={q.error}
       searchKeys={['asset_no', 'serial_number', 'manufacturer', 'model', 'user_name', 'location', 'as_log']} searchPlaceholder="예: 2024-NB-001, 키보드" wideSearch
       emptyText="개별 장비가 없습니다. '추가'로 새로 만들 수 있습니다."
-      table="device_units" reload={() => { q.reload(); batchesQ.reload(); }} sheetTab="전자기기_개별" sheetInTop showCount={false}
+      table="device_units" reload={() => { q.reload(); batchesQ.reload(); }} sheetTab={UNIT_TABS[category]} sheetInTop showCount={false}
       crud={{ add: true, edit: true, remove: true, rowLabel: unitLabel, addTitle: '개별 장비 추가',
         fields: [{ key: 'batch_id', header: '묶음', required: true, options: batches.map((b) => [b.id, batchLabel(b)]) }, ...unitFieldsFor(category)],
-        confirmDelete: (r) => `'${unitLabel(r)}' 개별 장비를 삭제할까요?\n- 시트 원본(전자기기_개별 탭)에서도 이 행이 지워집니다(전자기기 메뉴에서도 사라짐).\n- 이 장비의 A/S 기록(AS기록 탭)도 같이 지워집니다.\n- 묶음의 개수가 1대 줄어듭니다.\n되돌릴 수 없습니다.` }} />
+        confirmDelete: (r) => `'${unitLabel(r)}' 개별 장비를 삭제할까요?\n- 시트 원본(${UNIT_TABS[category]} 탭)에서도 이 행이 지워집니다(전자기기 메뉴에서도 사라짐).\n- 이 장비의 A/S 기록(AS기록 탭)도 같이 지워집니다.\n- 묶음의 개수가 1대 줄어듭니다.\n되돌릴 수 없습니다.` }} />
   );
 }
