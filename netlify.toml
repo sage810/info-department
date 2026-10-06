@@ -2,6 +2,12 @@
   command = "npm run build"
   publish = "dist"
 
+[build.environment]
+  # Netlify 의 비밀값 검사는 빌드 결과물(dist)에 환경변수 값이 들어 있으면 배포를 막는다.
+  # 아래 세 값은 브라우저 코드에 들어가도록 설계된 공개 값(프로젝트 주소·anon 키 — 데이터는 RLS 가 지킨다)이라 검사에서 뺀다.
+  # service_role 키·서비스 계정 JSON 은 여기 넣지 않는다: 이 값들은 빌드 결과물에 들어가면 안 되므로 검사가 계속 지켜 준다.
+  SECRETS_SCAN_OMIT_KEYS = "VITE_SUPABASE_URL,VITE_SUPABASE_ANON_KEY,SUPABASE_URL"
+
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
