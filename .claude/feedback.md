@@ -1602,3 +1602,27 @@
 - 화면: 정보부 업무 관리 · 1280×719
 - 상태: [x] 처리됨 — 데이터(시트 링크 탭)라 코드 수정 안 함, 키별 URL 표로 정리해 전달
 
+## 2026. 10. 6. 13시 35분 13초 · /
+- 종류: 메모
+- 요소: a.link-chip:nth-of-type(9)  (글자: "전자기기_개별_데스크톱")
+- 위치: div.content.fade > section.card:nth-of-type(3) > ul.sheet-rows > li.sheet-row:nth-of-type(3) > div.link-chips > a.link-chip:nth-of-type(9)
+- 메모: 전자기기_개별_노트북 버튼의 왼쪽으로 위치 변경
+- 화면: 정보부 업무 관리 · 1280×719
+- 상태: [x] 처리됨 — 개별 장비 탭 순서를 데스크톱 → 노트북 → 태블릿 → 태블릿보관함으로(보유_* 탭과 같은 순서) — shared/sheet-schema.js UNIT_TABS
+
+## 2026. 10. 6. 13시 35분 22초 · /
+- 종류: 메모
+- 요소: li.sheet-row:nth-of-type(6)
+- 위치: main#main > div.content.fade > section.card:nth-of-type(3) > ul.sheet-rows > li.sheet-row:nth-of-type(6)
+- 메모: 삭제
+- 화면: 정보부 업무 관리 · 1280×719
+- 상태: [x] 처리됨 — 시트 링크 탭의 옛 링크 2줄(sheet:노트북, sheet:보유태블릿)을 삭제해 "기타" 줄이 없어짐(동기화 후 반영), 코드 수정 없음
+
+## 2026. 10. 6. 13시 36분 5초 · /
+- 종류: 메모
+- 요소: div.link-chips
+- 위치: main#main > div.content.fade > section.card:nth-of-type(2) > div.link-chips
+- 메모: 같은 디자인으로 mdm관리 시스템 옆에 나래 A/S 만들고, https://dynarae/net/ 으로 연결되도록
+- 화면: 정보부 업무 관리 · 1280×719
+- 상태: [x] 처리됨 — 시트 링크 탭에 work:dynarae "나래 A/S" 줄 추가(주소는 https://dynarae.net/ 로 보정), 코드 수정 없음
+

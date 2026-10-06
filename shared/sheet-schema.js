@@ -100,10 +100,10 @@ const ID = { key: 'id', header: 'ID', note: '비워 두면 자동 생성' };
  * 앱·서버가 "이 장비는 어느 탭에 있나"를 알 때(unitTab)는 항상 이 표를 거친다 — byTable.device_units.tab 은 쓰지 않는다.
  */
 export const UNIT_TABS = {
+  데스크톱: '전자기기_개별_데스크톱', // 순서 = 홈 시트 바로가기 칩·시트 탭 순서(보유_* 탭과 같은 순서)
   노트북: '전자기기_개별_노트북',
   태블릿: '전자기기_개별_태블릿',
   태블릿보관함: '전자기기_개별_태블릿보관함',
-  데스크톱: '전자기기_개별_데스크톱',
 };
 /** 개별 장비가 있는 묶음의 분류가 주어졌을 때 그 장비가 적힌 시트 탭. 개별 장비 탭이 없는 분류면 undefined. */
 export const unitTab = (category) => UNIT_TABS[category];
