@@ -32,7 +32,7 @@ export async function accessToken(): Promise<string> {
 }
 
 /** suffix 는 '/', ':', '?' 로 시작하는 그대로의 경로 (예: '/values:batchUpdate', ':batchUpdate', '?fields=...') */
-async function call(suffix: string, init: RequestInit = {}) {
+export async function call(suffix: string, init: RequestInit = {}) {
   const token = await accessToken();
   const res = await fetch(`${API}/${SHEET_ID()}${suffix}`, {
     ...init, headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json', ...(init.headers ?? {}) },
@@ -43,7 +43,7 @@ async function call(suffix: string, init: RequestInit = {}) {
 }
 
 /** 시트 이름을 A1 표기(따옴표 처리)로. cell 을 주면 '탭'!C5 형태 */
-const a1 = (tab: string, cell?: string) => `'${tab.replace(/'/g, "''")}'${cell ? `!${cell}` : ''}`;
+export const a1 = (tab: string, cell?: string) => `'${tab.replace(/'/g, "''")}'${cell ? `!${cell}` : ''}`;
 /** URL 경로에 넣을 때는 인코딩까지 */
 const rangePath = (tab: string, cell?: string) => encodeURIComponent(a1(tab, cell));
 
@@ -116,7 +116,24 @@ export async function deleteRowById(tab: string, id: string): Promise<boolean> {
   return true;
 }
 
-function colLetter(i: number) {
+/**
+ * 비어 있던 ID 칸을 채운다. pending 은 동기화가 읽을 때의 { 행 위치(0부터, 머리글 제외), 만든 id, 그 행의 원래 값 }.
+ * 읽은 뒤 앱이 줄을 지우거나 끼워 넣었을 수 있어서(행 위치가 밀림), 쓰기 직전에 다시 읽어 그 위치의 줄이 처음 읽은 것과 같을 때만 쓴다.
+ * 쓴 개수를 돌려준다.
+ */
+export async function fillIds(tab: string, idCol: number, pending: { rowIdx: number; id: string; raw: string[] }[]): Promise<number> {
+  if (!pending.length || idCol < 0) return 0;
+  const { rows } = await readTab(tab);
+  const trim = (r: string[] = []) => { const c = r.slice(); while (c.length && !c[c.length - 1]) c.pop(); return JSON.stringify(c); };
+  const data = pending
+    .filter((p) => trim(rows[p.rowIdx]) === trim(p.raw))
+    .map((p) => ({ range: a1(tab, `${colLetter(idCol)}${p.rowIdx + 2}`), values: [[p.id]] }));
+  if (!data.length) return 0;
+  await call('/values:batchUpdate', { method: 'POST', body: JSON.stringify({ valueInputOption: 'RAW', data }) });
+  return data.length;
+}
+
+export function colLetter(i: number) {
   let s = '';
   for (let n = i; n >= 0; n = Math.floor(n / 26) - 1) s = String.fromCharCode(65 + (n % 26)) + s;
   return s;

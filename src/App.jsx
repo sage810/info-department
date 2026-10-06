@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './lib/auth.jsx';
 import Layout from './components/Layout.jsx';
 import Login from './pages/Login.jsx';
@@ -9,8 +9,8 @@ import Staff from './pages/Staff.jsx';
 import Goedu from './pages/Goedu.jsx';
 import Devices from './pages/Devices.jsx';
 import Edutech from './pages/Edutech.jsx';
-import StaffManage from './pages/StaffManage.jsx';
 import ClassManage from './pages/ClassManage.jsx';
+import As from './pages/As.jsx';
 import Rentals from './pages/Rentals.jsx';
 import Admin from './pages/Admin.jsx';
 
@@ -25,11 +25,11 @@ function Gate() {
       <Route element={<Layout />}>
         <Route index element={<Home />} />
         <Route path="manuals" element={<Manuals />} />
-        <Route path="staff" element={<Staff />} />
+        <Route path="staff/*" element={<Staff />} />
         <Route path="goedu/*" element={<Goedu />} />
         <Route path="devices/*" element={<Devices />} />
-        <Route path="edutech" element={<Edutech />} />
-        <Route path="manage/staff/*" element={<StaffManage />} />
+        <Route path="edutech/*" element={<Edutech />} />
+        <Route path="as/*" element={<As />} />
         <Route path="manage/class/*" element={<ClassManage />} />
         <Route path="rentals/*" element={<Rentals />} />
         {isAdmin && <Route path="admin" element={<Admin />} />}
@@ -39,12 +39,11 @@ function Gate() {
   );
 }
 
+// 데이터 라우터를 쓴다: 저장하지 않은 표 변경이 있을 때 화면 이동(메뉴·탭·뒤로 가기)을 막고 물어보려면 useBlocker 가 필요하다(UnsavedGuard).
+const router = createBrowserRouter([
+  { path: '*', element: <AuthProvider><Gate /></AuthProvider> },
+]);
+
 export default function App() {
-  return (
-    <BrowserRouter>
-      <AuthProvider>
-        <Gate />
-      </AuthProvider>
-    </BrowserRouter>
-  );
+  return <RouterProvider router={router} />;
 }

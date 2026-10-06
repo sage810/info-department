@@ -1,11 +1,13 @@
 /**
  * src/data/demo.js + shared/sheet-schema.js → demo/정보부_업무관리_데모시트.xlsx
- * 실행: npm run make:sheet
+ * 실행: npm run make:sheet  (다른 경로에 만들려면: node scripts/make-demo-sheet.mjs <경로>)
  * 사용: 구글 드라이브에 업로드 → "Google Sheets 로 열기" → 파일 ID 를 GOOGLE_SHEET_ID 에 넣는다.
  */
 import ExcelJS from 'exceljs';
 import { mkdirSync } from 'node:fs';
-import { TABLES, ITEM_TYPES, MANUAL_CATEGORIES, LINK_GROUPS, studentNo, classroomKey } from '../shared/sheet-schema.js';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { TABLES, ITEM_TYPES, MANUAL_CATEGORIES, LINK_GROUPS, studentNo, classroomKey, TAB_GROUPS, GUIDE_TAB, GUIDE_TAB_COLOR, GUIDE_MARKER } from '../shared/sheet-schema.js';
 import db from '../src/data/demo.js';
 
 const FONT = { name: 'Arial', size: 10 };
@@ -24,10 +26,14 @@ const wb = new ExcelJS.Workbook();
 wb.creator = '정보부 업무 관리 시스템';
 
 /* ---------- 안내 탭 ---------- */
-const guide = wb.addWorksheet('안내');
+const guide = wb.addWorksheet(GUIDE_TAB, { properties: { tabColor: { argb: 'FF' + GUIDE_TAB_COLOR.slice(1) } } });
 guide.columns = [{ width: 18 }, { width: 100 }];
+const tabLabel = Object.fromEntries(TABLES.map((t) => [t.tab, t.label]));
 const guideRows = [
   ['정보부 업무 관리 시스템 — 데이터 시트', ''],
+  ['', ''],
+  [GUIDE_MARKER, '탭 이름을 누르면 그 탭으로 이동합니다. 탭 색은 영역별입니다.'],
+  ...TAB_GROUPS.flatMap((g) => [[g.name, ''], ...g.tabs.map((tab) => [tab, tabLabel[tab]])]),
   ['', ''],
   ['사용법', '각 탭이 웹앱의 표 하나에 대응합니다. 이 시트를 고치면 웹앱이 주기적으로(기본 10분) 읽어 갑니다.'],
   ['ID 열', '비워 두면 자동으로 채워집니다. 이미 값이 있는 행의 ID 는 바꾸지 마세요.'],
@@ -36,19 +42,32 @@ const guideRows = [
   ['날짜', 'YYYY-MM-DD 형식 (예: 2026-03-02).'],
   ['비밀 정보', 'goedu 관리자 계정·학교 공용 메일 비밀번호는 이 시트에 넣지 않습니다. 웹앱의 관리자 메뉴얼(DB) 에만 저장합니다.'],
   ['', ''],
-  ['탭 목록', ''],
-  ...TABLES.map((t) => [t.tab, t.label]),
   ['', ''],
   ['데모 데이터', '이 파일의 모든 값은 가짜(데모) 입니다. 실제 데이터로 바꿔서 쓰세요.'],
 ];
 guideRows.forEach((r) => guide.addRow(r));
 guide.getRow(1).font = { ...FONT, bold: true, size: 14 };
-guide.getRow(10).font = { ...FONT, bold: true };
-guide.eachRow((row, i) => { if (i !== 1 && i !== 10) row.font = FONT; row.alignment = { vertical: 'top', wrapText: true }; });
+guide.eachRow((row) => { row.font = FONT; row.alignment = { vertical: 'top', wrapText: true }; });
+// 탭 목차: 제목줄·영역 줄(영역 색 바탕)은 굵게, 탭 칸은 그 탭으로 가는 링크
+guide.getRow(3).font = { ...FONT, bold: true };
+const tint = (hex) => 'FF' + [1, 3, 5].map((i) => Math.round(255 - (255 - parseInt(hex.slice(i, i + 2), 16)) * 0.2).toString(16).padStart(2, '0')).join('').toUpperCase();
+let guideRow = 4;
+for (const g of TAB_GROUPS) {
+  const gr = guide.getRow(guideRow++);
+  gr.font = { ...FONT, bold: true };
+  gr.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: tint(g.color) } };
+  for (const tab of g.tabs) {
+    const c = guide.getRow(guideRow++).getCell(1);
+    c.value = { text: tab, hyperlink: `#'${tab}'!A1` };
+    c.font = { ...FONT, color: { argb: 'FF1155CC' }, underline: true };
+  }
+}
 
 /* ---------- 데이터 탭 ---------- */
-for (const t of TABLES) {
-  const ws = wb.addWorksheet(t.tab);
+const groupOf = Object.fromEntries(TAB_GROUPS.flatMap((g) => g.tabs.map((tab) => [tab, g])));
+const ordered = TAB_GROUPS.flatMap((g) => g.tabs).map((tab) => TABLES.find((t) => t.tab === tab));
+for (const t of ordered) {
+  const ws = wb.addWorksheet(t.tab, { properties: { tabColor: { argb: 'FF' + groupOf[t.tab].color.slice(1) } } });
   const cols = t.columns;
   ws.columns = cols.map((c) => ({
     header: c.header,
@@ -112,6 +131,7 @@ for (const t of TABLES) {
 }
 
 mkdirSync(new URL('../demo/', import.meta.url), { recursive: true });
-const file = new URL('../demo/정보부_업무관리_데모시트.xlsx', import.meta.url);
+// 인자로 경로를 주면 거기에 만든다(기본 파일이 Excel 에서 열려 있어 덮어쓸 수 없을 때)
+const file = process.argv[2] ? pathToFileURL(resolve(process.argv[2])) : new URL('../demo/정보부_업무관리_데모시트.xlsx', import.meta.url);
 await wb.xlsx.writeFile(file);
 console.log('생성 완료:', decodeURIComponent(file.pathname), TABLES.map((t) => `${t.tab}=${db[t.table].length}`).join(', '));

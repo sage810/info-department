@@ -10,13 +10,14 @@
  *   - refKey 가 없는 순수 ref 열(사용자, 확인자 등)은 반드시 찾아야 하고, 못 찾으면 에러.
  */
 import { updateFieldsById } from '../lib/google-sheets.mts';
-import { requireUser, json, errorResponse } from '../lib/supabase-admin.mts';
-import { byTable, findEditableColumn, resolveRef, SCHOOL_YEAR } from '../../shared/sheet-schema.js';
+import { requireUser, waitForSync, selectAll, json, errorResponse } from '../lib/supabase-admin.mts';
+import { byTable, findEditableColumn, resolveRef, refHint, SCHOOL_YEAR } from '../../shared/sheet-schema.js';
 
 export default async (req: Request) => {
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
   try {
     const { sb } = await requireUser(req);
+    await waitForSync(sb); // 시트 동기화가 도는 중이면 끝난 뒤에 쓴다
     const { table, id, field, value } = await req.json() as { table: string; id: string; field: string; value: string };
 
     const t = byTable[table];
@@ -37,12 +38,12 @@ export default async (req: Request) => {
         const { data: row } = await sb.from(table).select('school_year').eq('id', id).maybeSingle();
         if (row?.school_year) year = row.school_year;
       }
-      const [staffRes, studentsRes, classroomsRes] = await Promise.all([
-        sb.from('staff').select('id,name'),
-        sb.from('students').select('id,school_year,grade,class_no,number'),
-        sb.from('classrooms').select('id,school_year,grade,class_no'),
+      const [staff, students, classrooms] = await Promise.all([
+        selectAll(sb, 'staff', 'id,name'),
+        selectAll(sb, 'students', 'id,school_year,grade,class_no,number'),
+        selectAll(sb, 'classrooms', 'id,school_year,grade,class_no'),
       ]);
-      const resolvedId = resolveRef(col.ref, text, year, { staff: staffRes.data ?? [], students: studentsRes.data ?? [], classrooms: classroomsRes.data ?? [] });
+      const resolvedId = resolveRef(col.ref, text, year, { staff, students, classrooms });
 
       if (col.refKey) {
         // 자연키 텍스트 자체를 저장하는 열(대여자 성함 등) — 못 찾아도 괜찮다
@@ -74,10 +75,3 @@ export default async (req: Request) => {
     return json({ ok: true, value: displayValue });
   } catch (e) { return errorResponse(e); }
 };
-
-function refHint(ref: string) {
-  if (ref === 'staff') return '교직원 탭의 성함과 똑같이 입력해 주세요.';
-  if (ref === 'students') return '학번(학년+반 2자리+번호 2자리, 예: 21011)으로 입력해 주세요.';
-  if (ref === 'classrooms') return '"학년-반" 형식(예: 2-5)으로 입력해 주세요.';
-  return '';
-}

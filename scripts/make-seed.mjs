@@ -17,7 +17,7 @@ const q = (v) => {
 const out = ['-- 자동 생성: npm run make:seed (src/data/demo.js 기준). 직접 수정하지 말 것.', 'begin;', ''];
 
 // 시트 탭 순서 = FK 부모 먼저
-const tables = TABLES.map((t) => t.table).concat(['admin_notes']);
+const tables = TABLES.map((t) => t.table);
 for (const table of tables.slice().reverse()) out.push(`delete from ${table};`);
 out.push('');
 

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../lib/auth.jsx';
 import demo from '../data/demo.js';
+import AutoGrowText from '../components/AutoGrowText.jsx';
 import * as Ic from '../components/Icons.jsx';
 
 export default function Login() {
@@ -35,7 +36,6 @@ export default function Login() {
       <form className="card fade" onSubmit={submit}>
         <div>
           <h1>정보부 업무 관리</h1>
-          <p className="sub">관리자가 승인한 교직원만 접속할 수 있습니다. 한 번 로그인하면 이 기기에서는 다시 묻지 않습니다.</p>
         </div>
 
         {!isDemo && (
@@ -50,7 +50,7 @@ export default function Login() {
         {mode === 'signup' && (
           <div className="field">
             <label htmlFor="name">이름</label>
-            <input id="name" className="field-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="교직원 배치표의 성함" required />
+            <AutoGrowText id="name" className="field-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="교직원 배치표의 성함" required />
           </div>
         )}
         <div className="field">

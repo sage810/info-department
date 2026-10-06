@@ -24,12 +24,17 @@ shared/sheet-schema.js        시트 탭 ↔ DB 테이블 ↔ 열 정의 (단일
 src/data/demo.js              데모 데이터
 src/lib/auth.jsx              로그인·승인 (Supabase Auth / 데모)
 src/lib/data.js               데이터 API (Supabase 뷰 / 데모 메모리)
-src/pages/*                   화면 (홈·메뉴얼·연락망·Goedu·전자기기·에듀테크·교직원별·반별·대여·관리자)
+src/pages/*                   화면 (홈·메뉴얼·연락망·Goedu·전자기기·에듀테크·반별·대여·관리자)
 supabase/migrations/0001_schema.sql   테이블·뷰·RLS
+supabase/migrations/0002_staff_homeroom.sql      교직원 "담임" 열
+supabase/migrations/0003_manual_attachments.sql  메뉴얼 첨부파일 열 + 저장소(manual-files) 권한
+supabase/migrations/0008_edutech_items.sql        에듀테크 표(구독·기타) — 시트 "에듀테크" 탭 ↔ edutech_items (0004~0007 은 이 목록에 생략)
+supabase/migrations/0012_normalize_sheets.sql         시트 정규화 — AS기록 탭(as_logs), 충전함 사양을 묶음으로, 학급 담임 성함 열 제거 (실행 전에 시트를 먼저 바꿀 것)
 supabase/seed.sql             데모 seed (생성 파일)
 netlify/functions/sync-sheets-scheduled.mts   10분마다 시트 → DB
-netlify/functions/sync-sheets.mts             관리자 "지금 동기화"
+netlify/functions/sync-sheets.mts             "지금 동기화"(승인된 누구나, 1분에 한 번) · 관리자는 force 로 행 감소 경고도 무시
 netlify/functions/rental.mts                  대여 추가·반납 (시트 먼저, DB 다음)
+netlify/functions/manual.mts                  메뉴얼 작성·수정·삭제 + 첨부 목록 (시트 먼저, DB 다음)
 netlify/lib/google-sheets.mts                 Sheets API (서비스 계정)
 demo/정보부_업무관리_데모시트.xlsx             구글 시트에 올릴 데모 파일
 ```
@@ -41,16 +46,27 @@ demo/정보부_업무관리_데모시트.xlsx             구글 시트에 올�
 - **표 셀 편집**: 거의 모든 표에서 셀을 누르면 바로 고칠 수 있다([DataTable.jsx](src/components/DataTable.jsx)의 `column.editable`). 한 함수([cell.mts](netlify/functions/cell.mts))가 `shared/sheet-schema.js` 정의만 보고 모든 표를 처리한다 — 열이 `type:'int'`/`'date'`면 그에 맞게 바꾸고, `ref`가 있으면(사용자·확인자·학번 등) 자연키 텍스트를 찾아 id 로 바꿔 넣는다. 다른 표에서 **조인해서 보여주는 열**(예: 노트북 표의 "부서")은 그 표 자신의 열이 아니라서 편집할 수 없다 — 원본 표(교직원 검색)에서 고쳐야 한다.
 - 시트에는 이름·학번·"학년-반" 같은 **자연키**로 적고, 동기화가 `staff.id` / `students.id` / `classrooms.id` 로 바꿔 넣는다. 사람이 id 를 몰라도 되게 하기 위함.
 - 관계 허브는 `staff`(교직원) · `students`(학생) · `classrooms`(학급). 노트북은 `staff_id` 가 비면 "보유 노트북", 보관함은 `classroom_id` 가 비면 "보유 보관함"으로 화면이 나뉜다. 상세는 [0001_schema.sql](supabase/migrations/0001_schema.sql) 머리의 관계도 참고.
-- goedu 관리자 계정·학교 공용 메일 비밀번호는 시트에 넣지 않고 `admin_notes`(관리자만 RLS 로 읽기)에만 둔다.
+- **주의 — Goedu 관리자 계정·학교 공용 메일도 이제 메뉴얼 글이다**(메뉴얼 → Goedu 카테고리의 "관리자 계정 · 학교 공용 메일"). 메뉴얼 글은 시트의 메뉴얼 탭에 기록되고 승인된 모든 사용자가 볼 수 있으니 **실제 비밀번호는 글에 적지 말 것**. 예전에 관리자만 읽던 `admin_notes` 표는 앱이 더 이상 쓰지 않는다(0001 SQL 에 남아 있을 뿐이며 지워도 된다).
+- **메뉴얼 첨부파일**(pdf·doc/docx·xls/xlsx·ppt/pptx·hwp·txt·csv·zip·이미지 등, 파일당 20MB·글당 5개): 파일 본문은 비공개 Storage 버킷 `manual-files` 에 두고(브라우저가 직접 올리고, 내려받을 때는 60초짜리 서명 주소), 메뉴얼 행의 `첨부파일` 칸에 줄마다 `파일ID|파일명|크기` 로 적는다. 이 칸도 다른 열처럼 시트 → DB 동기화되므로 **운영 시트의 메뉴얼 탭에 `첨부파일` 머리글이 있어야 한다**(없으면 그 탭은 동기화에서 건너뛰어진다 — 아래 "시트를 직접 고칠 때"). 글을 수정해 첨부를 빼거나 글을 지우면 Storage 의 파일도 지운다. 데모 모드에서는 파일을 브라우저 IndexedDB 에 저장한다.
+- **메뉴얼 → Goedu 카테고리와 Goedu → 관리자 메뉴얼은 같은 글 목록**이다. 별도 복사본이 아니라 같은 `manuals` 행(카테고리 Goedu)을 두 화면이 보여 주므로, 어느 쪽에서 쓰거나 고치거나 지워도 양쪽에 똑같이 반영된다(관리자 메뉴얼 화면에서 쓰면 카테고리는 Goedu 로 고정). 글 본문의 http(s) 주소는 누르면 열리는 링크로 보인다.
 
 ## 실제 운영으로 전환
 
 1. **구글 시트**: `demo/정보부_업무관리_데모시트.xlsx` 를 드라이브에 올려 Google Sheets 로 연 뒤 실제 데이터로 채운다. 탭 이름과 1행 머리글은 바꾸지 않는다(열 추가는 자유). 안내 탭에 규칙이 적혀 있다.
-2. **Supabase** 프로젝트 생성 → SQL Editor 에서 `0001_schema.sql` 실행 (테스트용이면 `seed.sql` 도).
+2. **Supabase** 프로젝트 생성 → SQL Editor 에서 `supabase/migrations/` 의 SQL 을 번호 순서대로(0001 → 0002 → 0003) 실행 (테스트용이면 `seed.sql` 도).
    - Authentication → Providers 에서 Google 켜기 (goedu 계정 로그인용). 이메일/비밀번호도 켜 두면 예비용으로 쓸 수 있다.
    - 첫 관리자: 한 번 로그인한 뒤 SQL 로 `update profiles set approved=true, role='admin' where email='...';`
 3. **서비스 계정**: GCP 콘솔 → 서비스 계정 생성 → JSON 키 발급 → 그 `client_email` 에 시트를 **편집자**로 공유. Sheets API 활성화.
 4. **Netlify**: 저장소 연결 후 환경변수 설정 (`.env.example` 참고). 배포되면 스케줄 함수가 돌기 시작한다. 관리자 화면의 "시트 지금 동기화"로 즉시 확인.
+5. **시트 안전장치**: `npm run setup:sheet` (= `node --env-file=.env scripts/setup-sheet-guards.mjs`, 먼저 `--dry-run` 으로 무엇을 할지 볼 수 있다). 없는 탭·머리글을 채우고, 탭을 영역별 색·순서로 정리하고 "안내" 탭 맨 위에 탭 목차(이동 링크)를 넣고(영역은 `shared/sheet-schema.js` 의 `TAB_GROUPS`), 머리글 줄 고정·머리글/ID 열 보호·열별 입력 검증(드롭다운·날짜·숫자·성함·학번·학년-반)을 건다. `SHEET_ADMIN_EMAILS`(쉼표 구분)를 적으면 그 사람들과 서비스 계정만 머리글·ID 열을 고칠 수 있게 잠그고, 없으면 경고만 띄운다. 스키마(`shared/sheet-schema.js`)를 바꾼 뒤에도 다시 돌린다.
+
+## 시트를 직접 고칠 때 (시트 → 앱 반영)
+
+- 앱은 10분마다 시트를 읽어 DB 를 맞춘다. 상단 띠의 "시트 동기화 N분 전 · 지금 동기화" 로 승인된 누구나 바로 가져올 수 있고(1분에 한 번), 동기화가 끝나면 열려 있는 화면의 데이터가 다시 읽힌다(저장하지 않은 변경이 있으면 건너뛰고 안내만).
+- **새 줄을 추가할 땐 ID 칸을 비워 둔다.** 동기화가 만든 ID 를 시트의 ID 칸에 적어 두므로, 그 뒤에 내용을 고쳐도 같은 행으로 남는다(AS기록처럼 ID 로 연결된 기록이 끊기지 않는다). 줄을 복사했다면 ID 칸을 지운다(ID 가 겹치면 뒤 줄은 건너뛰고 "확인할 것"에 남는다).
+- 머리글 이름·탭 이름은 바꾸지 않는다. 바뀌었거나 필요한 머리글이 없으면 **그 탭만 동기화를 건너뛰고**(DB 는 그대로) 앱 상단에 "시트에 문제가 있어 일부 동기화를 건너뛰었습니다" 가 뜬다. 관리자 화면의 "최근 동기화" 표 "건너뜀" 열에 탭과 이유가 나온다.
+- 시트의 행이 한꺼번에 절반 아래로 줄거나 탭이 비면 실수로 보고 그 탭을 건너뛴다. 일부러 지운 거라면 관리자 화면의 "그대로 반영하고 동기화" 버튼을 누른다.
+- 앱에서 저장하는 동안 동기화가 돌고 있으면 앱의 쓰기가 끝날 때까지(최대 20초) 기다렸다 진행된다.
 
 ## 스택 선택에 대해
 
@@ -64,4 +80,4 @@ Supabase + Netlify 로 만들었다. 이 조합이 맞다고 본 이유와, 다�
 
 ## 디자인
 
-`.design/` 의 토큰과 스타일 가이드를 그대로 따른다: Pretendard, 보라 포인트 `#7132f5`, 좌측 고정 사이드바(248px, 1280px 이하는 떠 있는 도크, 손잡이로 접기), 4px 간격 배수, 44px 터치 영역, 이모지 대신 SVG 아이콘.
+`.design/` 의 토큰과 스타일 가이드를 그대로 따른다: Pretendard, 보라 포인트 `#7132f5`, 상단 고정 바(어두운 띠에 사용자·로그아웃, 그 아래 알약 모양 흰 카드에 "정보부 업무 관리"(홈 링크)와 주 메뉴, 960px 이하는 햄버거로 접힘), 4px 간격 배수, 44px 터치 영역, 이모지 대신 SVG 아이콘.

@@ -9,7 +9,10 @@
     "preview": "vite preview",
     "make:sheet": "node scripts/make-demo-sheet.mjs",
     "make:seed": "node scripts/make-seed.mjs",
-    "make:demo": "npm run make:sheet && npm run make:seed"
+    "make:demo": "npm run make:sheet && npm run make:seed",
+    "setup:sheet": "node --env-file=.env scripts/setup-sheet-guards.mjs",
+    "check:sheet": "node --env-file=.env scripts/check-sheet.mjs",
+    "sync:local": "node --env-file=.env scripts/sync-now.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
