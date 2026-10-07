@@ -1,3 +1,4 @@
+import { useId, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLinks } from '../lib/data.js';
 import { useAuth } from '../lib/auth.jsx';
@@ -18,6 +19,24 @@ function LinkChip({ href, title, children }) {
     <a className="link-chip" href={href} target="_blank" rel="noopener noreferrer" title={title}>
       {children}<Ic.External width="12" height="12" aria-hidden="true" /><span className="sr-only"> (새 탭에서 열림)</span>
     </a>
+  );
+}
+
+/** 제목을 눌러 펼치고 접는 카드. 처음엔 접혀 있다(접힌 안의 링크는 키보드로도 못 간다 — inert). 접는 방식은 표 접기와 같은 .tg/.collapse. */
+function FoldCard({ title, children }) {
+  const [open, setOpen] = useState(false);
+  const panelId = useId();
+  return (
+    <section className={`card fold-card${open ? '' : ' folded'}`}>
+      <h2 className="section-title section-title-center">
+        <button type="button" className="tg" aria-expanded={open} aria-controls={panelId} onClick={() => setOpen((o) => !o)}>
+          <Ic.ChevronDown aria-hidden="true" />{title}
+        </button>
+      </h2>
+      <div id={panelId} className={`collapse${open ? '' : ' closed'}`}>
+        <div className="fold-body" inert={open ? undefined : ''}><div className="fold-inner">{children}</div></div>
+      </div>
+    </section>
   );
 }
 
@@ -53,16 +72,14 @@ export default function Home() {
       </section>
 
       {works.length > 0 && (
-        <section className="card">
-          <h2 className="section-title section-title-center">업무 관리 사이트 바로가기</h2>
+        <FoldCard title="업무 관리 사이트 바로가기">
           <div className="link-chips" style={{ '--c': 'var(--purple)' }}>
             {works.map((l) => <LinkChip key={l.key} href={l.url} title={l.memo}>{l.label}</LinkChip>)}
           </div>
-        </section>
+        </FoldCard>
       )}
 
-      <section className="card">
-        <h2 className="section-title section-title-center">구글 시트 바로가기</h2>
+      <FoldCard title="구글 시트 바로가기">
         {/* 영역(시트 탭 색과 같은 색)마다 한 줄: 왼쪽 영역 이름, 오른쪽 그 영역의 탭 이름 알약 */}
         <ul className="sheet-rows">
           {sheetRows.map((r) => (
@@ -76,7 +93,7 @@ export default function Home() {
             </li>
           ))}
         </ul>
-      </section>
+      </FoldCard>
     </>
   );
 }

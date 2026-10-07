@@ -1626,3 +1626,19 @@
 - 화면: 정보부 업무 관리 · 1280×719
 - 상태: [x] 처리됨 — 시트 링크 탭에 work:dynarae "나래 A/S" 줄 추가(주소는 https://dynarae.net/ 로 보정), 코드 수정 없음
 
+## 2026. 10. 7. 12시 29분 14초 · /
+- 종류: 메모
+- 요소: section.card:nth-of-type(2)
+- 위치: main#main > div.content.fade > section.card:nth-of-type(2)
+- 메모: 드롭다운으로 펼치고 접을 수 있게. default는 접혀져 있는 상태
+- 화면: 정보부 업무 관리 · 1280×719
+- 상태: [x] 처리됨 — 홈 카드를 제목(▸)을 눌러 펼치고 접게 함, 처음엔 접힘 — src/pages/Home.jsx FoldCard, src/styles.css .fold-*
+
+## 2026. 10. 7. 12시 29분 18초 · /
+- 종류: 메모
+- 요소: section.card:nth-of-type(3)
+- 위치: main#main > div.content.fade > section.card:nth-of-type(3)
+- 메모: 드롭다운으로 펼치고 접을 수 있게. default는 접혀져 있는 상태
+- 화면: 정보부 업무 관리 · 1280×719
+- 상태: [x] 처리됨 — 홈 카드를 제목(▸)을 눌러 펼치고 접게 함, 처음엔 접힘 — src/pages/Home.jsx FoldCard, src/styles.css .fold-*
+

@@ -494,6 +494,11 @@ table.data .empty{padding:32px;text-align:center;color:var(--ink-soft)}
 .sheet-row h3{display:flex;align-items:center;justify-content:center;gap:8px;min-height:40px;font-size:var(--fs-base);font-weight:700}
 .sheet-dot{width:10px;height:10px;border-radius:50%;background:var(--c);flex:none}
 .link-chips{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+/* 접고 펴는 홈 카드(FoldCard): 접히면 제목 아래 여백을 없앤다. .fold-inner 의 여백 4px 은 .collapse 의 overflow:hidden 이 칩의 초점 링을 자르지 않게 하는 것이고,
+   접히는 칸(.fold-body) 자신에는 여백을 두지 않는다(두면 접혀도 그 높이만큼 내용이 삐져나온다) */
+.fold-card .section-title{margin-bottom:8px}
+.fold-card.folded .section-title{margin-bottom:0}
+.fold-inner{padding:4px}
 .link-chip{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px;border:1px solid color-mix(in srgb,var(--c) 35%,#fff);border-radius:var(--radius-pill);background:color-mix(in srgb,var(--c) 10%,#fff);color:var(--ink);font-size:var(--fs-base);font-weight:600;text-decoration:none;white-space:nowrap;transition:background var(--dur-fast),border-color var(--dur-fast)}
 .link-chip svg{opacity:.55;flex:none}
 .link-chip:focus-visible{outline:none;box-shadow:var(--focus-ring)}
