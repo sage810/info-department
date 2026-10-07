@@ -105,6 +105,31 @@ export const UNIT_TABS = {
   태블릿: '전자기기_개별_태블릿',
   태블릿보관함: '전자기기_개별_태블릿보관함',
 };
+/**
+ * 개별 장비 탭의 열. 공통 열은 모든 탭이 같고, 종류마다 더 둘 열은 UNIT_EXTRA_COLUMNS 에 둔다(그 탭에만 생기고, 값은 같은 DB 표의 열에 들어간다).
+ * 앱·서버가 쓰는 byTable.device_units 는 모든 탭의 열을 합친 정의다.
+ */
+const unitCommonColumns = (category) => [
+  ID,
+  { key: 'batch_id', header: '묶음 ID', note: `보유_${category} 탭의 ID (예: dv-021). 물품 분류명이 "${category}" 인 묶음만 적을 수 있다` },
+  { key: 'asset_no', header: '관리번호' },
+  { key: 'serial_no', header: '분류번호' },
+  { key: 'staff_id', header: '사용자', ref: 'staff', note: '비어 있으면 보유(예비)' },
+  { key: 'ip_address', header: 'IP주소' },
+  { key: 'location', header: '위치' },
+  { key: 'purchase_date', header: '취득일자', type: 'date', note: '비우면 묶음의 취득일자' },
+  { key: 'os', header: '운영체제', note: '비우면 묶음의 운영체제' },
+  { key: 'status', header: '상태', note: UNIT_STATUSES.join(' / '), options: UNIT_STATUSES },
+  { key: 'memo', header: '비고' },
+  { key: 'serial_number', header: '시리얼번호', note: '제조사 시리얼(분류번호와 다름)' },
+];
+const UNIT_EXTRA_COLUMNS = {
+  노트북: [
+    { key: 'item_kind', header: '물품구분' },
+    { key: 'item_name', header: '물품명' },
+  ],
+};
+
 /** 개별 장비가 있는 묶음의 분류가 주어졌을 때 그 장비가 적힌 시트 탭. 개별 장비 탭이 없는 분류면 undefined. */
 export const unitTab = (category) => UNIT_TABS[category];
 
@@ -245,22 +270,12 @@ export const TABLES = [
     ],
   })),
   // 개별 장비: 한 대마다 한 줄. 묶음 ID 는 보유_* 탭의 ID 열 값을 그대로 적는다. (예전 "노트북 IP대장")
-  // 종류(묶음의 물품 분류명)마다 탭이 하나씩이고 열은 모두 같다. DB 표는 device_units 하나라서 네 항목이 같은 table 을 가리킨다.
+  // 종류(묶음의 물품 분류명)마다 탭이 하나씩이고 열은 공통 열 + 종류별 추가 열(UNIT_EXTRA_COLUMNS). DB 표는 device_units 하나라서 네 항목이 같은 table 을 가리킨다.
   ...Object.entries(UNIT_TABS).map(([category, tab]) => ({
     table: 'device_units', tab, unitCategory: category, label: `전자기기 개별 장비 — ${category}`,
     columns: [
-      ID,
-      { key: 'batch_id', header: '묶음 ID', note: `보유_${category} 탭의 ID (예: dv-021). 물품 분류명이 "${category}" 인 묶음만 적을 수 있다` },
-      { key: 'asset_no', header: '관리번호' },
-      { key: 'serial_no', header: '분류번호' },
-      { key: 'staff_id', header: '사용자', ref: 'staff', note: '비어 있으면 보유(예비)' },
-      { key: 'ip_address', header: 'IP주소' },
-      { key: 'location', header: '위치' },
-      { key: 'purchase_date', header: '취득일자', type: 'date', note: '비우면 묶음의 취득일자' },
-      { key: 'os', header: '운영체제', note: '비우면 묶음의 운영체제' },
-      { key: 'status', header: '상태', note: UNIT_STATUSES.join(' / '), options: UNIT_STATUSES },
-      { key: 'memo', header: '비고' },
-      { key: 'serial_number', header: '시리얼번호', note: '제조사 시리얼(분류번호와 다름)' },
+      ...unitCommonColumns(category),
+      ...(UNIT_EXTRA_COLUMNS[category] ?? []),
     ],
   })),
   {
@@ -380,6 +395,8 @@ export const GUIDE_MARKER = '탭 목차';
 
 // 같은 표를 가리키는 탭이 여럿이면(device_units) 첫 탭의 정의가 들어간다 — 열은 같지만 .tab 은 믿지 말고 unitTab 을 쓴다.
 export const byTable = Object.fromEntries(TABLES.slice().reverse().map((t) => [t.table, t]));
+// 개별 장비는 탭마다 열이 조금 다르다. 앱·서버(추가·셀 수정)가 보는 표 정의는 모든 탭의 열 합집합이고, 어느 탭에 쓸지는 unitTab 이 정한다.
+byTable.device_units = { ...byTable.device_units, columns: [...new Map(TABLES.filter((t) => t.table === 'device_units').flatMap((t) => t.columns).map((c) => [c.key, c])).values()] };
 
 /** 학번 = 학년(1) + 반(2) + 번호(2) → 예: 2학년 10반 11번 = 21011 */
 export function studentNo(s) {

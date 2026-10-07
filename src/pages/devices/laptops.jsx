@@ -26,7 +26,7 @@ export function Laptops({ staffOnly }) {
     { key: 'ip_address' },
     ...(staffOnly ? [{ key: 'staff_id', header: '사용자', required: true, hint: '교직원 탭의 성함과 똑같이' }] : []),
     { key: 'location', header: staffOnly ? '위치' : '보유 위치' },
-    { key: 'asset_no' }, { key: 'serial_no' }, { key: 'serial_number' }, { key: 'purchase_date' }, { key: 'os' }, { key: 'memo' },
+    { key: 'asset_no' }, { key: 'serial_no' }, { key: 'serial_number' }, { key: 'item_kind' }, { key: 'item_name' }, { key: 'purchase_date' }, { key: 'os' }, { key: 'memo' },
   ];
   // 개별 장비 표와 같은 열. 관리번호·분류번호(교원용은 사용자의 직위·부서도)는 "함께 볼 정보"로 켠다.
   const cols = unitColumns(true, '노트북', on, { stock: !staffOnly }).flatMap((c) => (c.key === 'user_name' && staffOnly ? [c, on.position && LAPTOP_EXTRA.position, on.department && LAPTOP_EXTRA.department] : [c])).filter(Boolean);
@@ -40,7 +40,7 @@ export function Laptops({ staffOnly }) {
     <>
       {!staffOnly && <Head text="보유 노트북 — 사용자가 없는 예비·공용 노트북. 제조사·모델명은 묶음(보유 현황 → 노트북)에서 고칩니다." />}
       <DataTable columns={cols} rows={laptopRows} loading={q.loading} error={q.error} filter={(l) => (staffOnly ? !!l.staff_id : !l.staff_id)}
-        searchKeys={['asset_no', 'serial_no', 'serial_number', 'user_name', 'ip_address', 'location', 'manufacturer', 'model', 'position', 'department']} searchPlaceholder="예: 10.20.4"
+        searchKeys={['asset_no', 'serial_no', 'serial_number', 'item_kind', 'item_name', 'user_name', 'ip_address', 'location', 'manufacturer', 'model', 'position', 'department']} searchPlaceholder="예: 10.20.4"
         tableTop={tableTop}
         table="device_units" reload={q.reload} sheetTab={UNIT_TABS.노트북} sheetInTop showCount={false}
         crud={{ add: true, edit: true, remove: true, fields: addFields, rowLabel: unitLabel, addTitle: staffOnly ? '교원용 노트북 추가' : '보유 노트북 추가',

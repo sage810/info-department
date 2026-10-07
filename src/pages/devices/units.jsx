@@ -30,7 +30,7 @@ const CABINET_SPEC_COLS = [
 ];
 /** 유형별 "함께 볼 정보" 칩(켜면 그 열이 보인다) */
 export const UNIT_CHIPS = {
-  노트북: [{ key: 'asset_no', header: '관리번호' }, { key: 'serial_no', header: '분류번호' }],
+  노트북: [{ key: 'asset_no', header: '관리번호' }, { key: 'serial_no', header: '분류번호' }, { key: 'item_kind', header: '물품구분' }, { key: 'item_name', header: '물품명' }],
   태블릿: [{ key: 'serial_no', header: '분류번호' }],
   태블릿보관함: [{ key: 'serial_no', header: '분류번호' }, ...CABINET_SPEC_COLS],
 };
@@ -39,6 +39,8 @@ const U = {
   asset: { key: 'asset_no', header: '관리번호', className: 'mono', editable: true },
   cls: { key: 'serial_no', header: '분류번호', className: 'mono', editable: true },
   sn: { key: 'serial_number', header: '시리얼번호', className: 'mono', editable: true },
+  kind: { key: 'item_kind', header: '물품구분', editable: true },
+  itemName: { key: 'item_name', header: '물품명', editable: true },
   user: { key: 'user_name', header: '사용자', editable: true, editField: 'staff_id' },
   ip: { key: 'ip_address', header: 'IP주소', className: 'mono', editable: true },
   loc: { key: 'location', header: '위치', editable: true },
@@ -59,8 +61,8 @@ export const unitColumns = (showModel, category, on = {}, { stock = false } = {}
   const opt = (c) => (on[c.key] ? [c] : []); // 함께 볼 정보 칩으로 켠 열
   if (category === '노트북') {
     // 보유(예비) 노트북은 사용자 대신 제조사, 위치는 운영체제 오른쪽
-    if (stock) return [U.ip, ...opt(U.asset), ...opt(U.cls), U.sn, ...batchCols(U.maker, U.model), U.date, U.os, U.loc, U.memo];
-    return [U.ip, ...opt(U.asset), ...opt(U.cls), U.sn, U.user, U.loc, ...batchCols(U.model), U.date, U.os, U.memo];
+    if (stock) return [U.ip, ...opt(U.asset), ...opt(U.cls), U.sn, ...opt(U.kind), ...opt(U.itemName), ...batchCols(U.maker, U.model), U.date, U.os, U.loc, U.memo];
+    return [U.ip, ...opt(U.asset), ...opt(U.cls), U.sn, ...opt(U.kind), ...opt(U.itemName), U.user, U.loc, ...batchCols(U.model), U.date, U.os, U.memo];
   }
   if (category === '태블릿') return [U.asset, ...opt(U.cls), U.sn, ...batchCols(U.maker, U.model), U.memo];
   if (category === '태블릿보관함') return [U.asset, ...opt(U.cls), ...batchCols(U.maker, U.model, U.cap), ...CABINET_SPEC_COLS.filter((c) => on[c.key]), U.memo];
@@ -69,7 +71,7 @@ export const unitColumns = (showModel, category, on = {}, { stock = false } = {}
 /** 개별 장비 추가 폼의 칸 — 표에 보이는 칸과 같게 */
 export function unitFieldsFor(category) {
   const keys = {
-    노트북: ['ip_address', 'asset_no', 'serial_no', 'serial_number', 'staff_id', 'location', 'purchase_date', 'os', 'memo'],
+    노트북: ['ip_address', 'asset_no', 'serial_no', 'serial_number', 'item_kind', 'item_name', 'staff_id', 'location', 'purchase_date', 'os', 'memo'],
     태블릿: ['asset_no', 'serial_no', 'serial_number', 'memo'],
     태블릿보관함: ['asset_no', 'serial_no', 'memo'],
   }[category] ?? ['asset_no', 'serial_no', 'staff_id', 'ip_address', 'location', 'purchase_date', 'os', 'status', 'memo'];
