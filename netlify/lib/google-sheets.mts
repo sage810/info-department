@@ -7,6 +7,8 @@ import { createSign } from 'node:crypto';
 
 const SHEET_ID = () => process.env.GOOGLE_SHEET_ID!;
 const API = 'https://sheets.googleapis.com/v4/spreadsheets';
+/** Google 요청 하나가 이보다 오래 걸리면 끊는다 — 응답이 안 오는 요청 하나가 동기화 전체를 붙잡아 두지 않게 */
+const TIMEOUT_MS = 30_000;
 
 let cached: { token: string; exp: number } | null = null;
 let inflight: Promise<string> | null = null;
@@ -31,6 +33,7 @@ async function fetchToken(): Promise<string> {
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: `${unsigned}.${sig}` }),
+    signal: AbortSignal.timeout(TIMEOUT_MS),
   });
   const json: any = await res.json();
   if (!res.ok) throw new Error(`Google 토큰 발급 실패: ${json.error_description ?? res.status}`);
@@ -43,6 +46,7 @@ export async function call(suffix: string, init: RequestInit = {}) {
   const token = await accessToken();
   const res = await fetch(`${API}/${SHEET_ID()}${suffix}`, {
     ...init, headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json', ...(init.headers ?? {}) },
+    signal: AbortSignal.timeout(TIMEOUT_MS),
   });
   const json: any = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(`Sheets API 오류 (${res.status}): ${json.error?.message ?? suffix}`);
@@ -54,12 +58,33 @@ export const a1 = (tab: string, cell?: string) => `'${tab.replace(/'/g, "''")}'$
 /** URL 경로에 넣을 때는 인코딩까지 */
 const rangePath = (tab: string, cell?: string) => encodeURIComponent(a1(tab, cell));
 
-/** 탭 전체를 읽어 { headers, rows } 로. rows 는 표시된 문자열 그대로. */
-export async function readTab(tab: string): Promise<{ headers: string[]; rows: string[][] }> {
-  const json = await call(`/values/${rangePath(tab)}?valueRenderOption=FORMATTED_VALUE`);
-  const values: string[][] = json.values ?? [];
+export type TabData = { headers: string[]; rows: string[][] };
+const parseValues = (values: string[][] = []): TabData => {
   const [headers = [], ...rows] = values;
   return { headers: headers.map((h) => String(h ?? '').trim()), rows: rows.map((r) => r.map((v) => String(v ?? '').trim())) };
+};
+
+/** 탭 전체를 읽어 { headers, rows } 로. rows 는 표시된 문자열 그대로. */
+export async function readTab(tab: string): Promise<TabData> {
+  const json = await call(`/values/${rangePath(tab)}?valueRenderOption=FORMATTED_VALUE`);
+  return parseValues(json.values);
+}
+
+/**
+ * 탭 여러 개를 요청 두 번으로 읽는다(탭 목록 1번 + values:batchGet 1번). 동기화가 24개 탭을 따로따로 부르던 것을 줄인 것.
+ * batchGet 은 없는 탭이 하나라도 섞이면 전체가 실패하므로, 먼저 탭 목록을 보고 있는 탭만 묻는다. 없는 탭은 { error } 로 돌려준다.
+ */
+export async function readTabs(tabs: string[]): Promise<Map<string, TabData | { error: Error }>> {
+  const meta = await call('?fields=sheets.properties.title');
+  const titles = new Set<string>((meta.sheets ?? []).map((s: any) => s.properties.title));
+  const out = new Map<string, TabData | { error: Error }>();
+  const present = tabs.filter((t) => titles.has(t));
+  for (const t of tabs) if (!titles.has(t)) out.set(t, { error: new Error('시트에 이 탭이 없습니다') });
+  if (present.length) {
+    const json = await call(`/values:batchGet?${present.map((t) => `ranges=${rangePath(t)}`).join('&')}&valueRenderOption=FORMATTED_VALUE`);
+    (json.valueRanges ?? []).forEach((vr: any, i: number) => out.set(present[i], parseValues(vr.values)));
+  }
+  return out;
 }
 
 /** 머리글 이름 → 값 맵을 받아 탭 끝에 한 줄 추가 (열 순서는 시트의 머리글 순서를 따른다) */

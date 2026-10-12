@@ -21,6 +21,20 @@ export function agoText(iso, now = Date.now()) {
   return h < 24 ? `${h}시간 전` : `${Math.floor(h / 24)}일 전`;
 }
 
+/**
+ * "지금 동기화"는 서버에서 시작만 되고(백그라운드 함수) 끝은 sync_runs 기록에 남는다. 그 기록(runId)이 끝날 때까지 2초마다 본다.
+ * 끝난 기록을 돌려주고, 시간 안에 안 끝나면 null.
+ */
+export async function waitForSyncRun(runId, { timeoutMs = 5 * 60_000, everyMs = 2000 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, everyMs));
+    const run = await api.syncRun(runId);
+    if (run?.finished_at) return run;
+  }
+  return null;
+}
+
 /** Layout 이 한 번 부른다. enabled=false(데모)면 아무것도 하지 않는다. */
 export function useSyncStatus(enabled) {
   const [run, setRun] = useState(null);
@@ -60,8 +74,13 @@ export function useSyncStatus(enabled) {
   const syncNow = useCallback(async () => {
     setBusy(true); say('');
     try {
-      const r = await api.syncNow();
+      const r = await api.syncNow(); // 시작만 하고 바로 돌아온다 → 기록이 끝날 때까지 본다
       if (r?.throttled) say('방금 동기화했습니다. 1분 뒤에 다시 눌러 주세요.');
+      else {
+        const run = await waitForSyncRun(r.runId);
+        if (!run) say('동기화가 오래 걸리고 있습니다. 잠시 뒤 다시 확인해 주세요.');
+        else if (run.ok === false) say(`동기화 실패: ${run.summary?.error ?? '관리자 화면에서 확인하세요.'}`);
+      }
       await load();
     } catch (e) { say(e.message); }
     finally { setBusy(false); }

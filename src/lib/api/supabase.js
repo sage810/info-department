@@ -87,5 +87,7 @@ export const supaApi = {
   // 가장 최근에 끝난 동기화(상단 "시트 동기화 N분 전"·경고 띠가 읽는다). 없으면 null
   syncStatus: () => supabase.from('sync_runs').select('id,started_at,finished_at,ok,summary').not('finished_at', 'is', null)
     .order('started_at', { ascending: false }).limit(1).then(({ data }) => data?.[0] ?? null),
+  // 동기화를 시작만 한다 → { runId } | { throttled: true }. 끝나기를 기다리는 건 syncRun(runId) 를 2초마다 보는 쪽(SyncStatus.jsx waitForSyncRun)
   syncNow: (opts) => callFunction('sync-sheets', opts ?? {}),
+  syncRun: (id) => supabase.from('sync_runs').select('id,started_at,finished_at,ok,summary').eq('id', id).maybeSingle().then(({ data }) => data ?? null),
 };

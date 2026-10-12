@@ -17,16 +17,38 @@
  *   두 가지 모두 다른 탭과 ID 가 겹친 줄은 건너뛰고, 건너뛴 줄은 problems 에 남긴다.
  *   "시트에 없는 행 삭제"와 "줄어듦" 판정도 그 탭의 분류 안에서만 한다. 모든 개별 장비 탭이 정상으로 읽혔을 때만,
  *   어느 탭에도 없는 장비(묶음이 사라진 장비 등)를 마지막에 정리한다.
- * 동시에 두 번 돌지 않는다: 2분 안에 시작해 아직 안 끝난 기록이 있으면 거절(409).
+ * 시트는 요청 두 번(탭 목록 + values:batchGet)으로 한꺼번에 읽고, DB 에는 **바뀐 행만** 쓴다(기존 행을 전체 열로 읽어 시트 값과 비교).
+ * 안 바뀐 행은 updated_at 도 건드리지 않는다. 매 10분 1,400행을 통째로 다시 쓰던 것을 없앤 것.
+ * 동시에 두 번 돌지 않는다: 중단된 기록(STALE_MS 넘게 안 끝남)은 먼저 닫고, 그래도 도는 기록이 있으면 거절(409).
+ * 보통은 시작 함수가 sync_runs 행을 먼저 만들고(runId) 백그라운드 함수가 이 함수를 부른다. runId 없이 부르면(로컬 스크립트) 여기서 만든다.
  */
 import { createHash } from 'node:crypto';
 import { TABLES, SCHOOL_YEAR, UNIT_TABS, deviceTab } from '../../shared/sheet-schema.js';
-import { readTab, fillIds } from './google-sheets.mts';
-import { adminClient, selectAll } from './supabase-admin.mts';
+import { readTab, readTabs, fillIds, type TabData } from './google-sheets.mts';
+import { adminClient, selectAll, closeStaleRuns, runningSync } from './supabase-admin.mts';
 
 type Row = Record<string, unknown>;
 export type Skipped = { tab: string; reason: 'read' | 'headers' | 'shrink'; detail: string };
-export type SyncDeps = { sb?: any; read?: typeof readTab; fill?: typeof fillIds; force?: boolean };
+export type SyncDeps = {
+  sb?: any; fill?: typeof fillIds; force?: boolean;
+  readAll?: ReadAll; read?: typeof readTab;        // read 는 시험용(탭마다 따로 읽는 옛 방식)
+  runId?: number;                                   // 시작 함수가 미리 만든 sync_runs 행
+  trigger?: 'button' | 'schedule' | 'local';        // 요약에 남길 "누가 시작했나"
+};
+type ReadAll = (tabs: string[]) => Promise<Map<string, TabData | { error: Error }>>;
+const perTab = (read: typeof readTab): ReadAll => async (tabs) =>
+  new Map(await Promise.all(tabs.map(async (tab): Promise<[string, TabData | { error: Error }]> => [tab, await read(tab).catch((error: Error) => ({ error }))])));
+
+/** 시트 행(obj)과 DB 행(e)이 시트가 관리하는 열에서 같은가. 비교는 문자열로(숫자·날짜도 양쪽 다 같은 표기), null 과 '' 는 같게 본다. */
+const norm = (v: unknown) => (v == null ? '' : String(v));
+function sameRow(t: { columns: any[] }, obj: Row, e: Row): boolean {
+  for (const c of t.columns) {
+    if (!c.key || c.key === 'id') continue;
+    if (norm(obj[c.key]) !== norm(e[c.key])) return false;
+    if (c.refKey && norm(obj[c.refKey]) !== norm(e[c.refKey])) return false;
+  }
+  return true;
+}
 
 const hash = (s: string) => createHash('sha1').update(s).digest('hex').slice(0, 12);
 
@@ -45,15 +67,20 @@ const SHRINK_MIN_EXISTING = 6;
 
 export async function runSync(deps: SyncDeps = {}) {
   const sb = deps.sb ?? adminClient();
-  const read = deps.read ?? readTab;
+  const readAll: ReadAll = deps.readAll ?? (deps.read ? perTab(deps.read) : readTabs);
   const fill = deps.fill ?? fillIds;
+  const trigger = deps.trigger ?? 'local';
+  const t0 = Date.now();
 
-  // 동시에 두 번 돌지 않게: 아직 안 끝난 최근 기록이 있으면 거절
-  const { data: running } = await sb.from('sync_runs').select('id').is('finished_at', null)
-    .gte('started_at', new Date(Date.now() - 2 * 60_000).toISOString()).limit(1);
-  if (running?.length) throw Object.assign(new Error('이미 동기화가 진행 중입니다. 잠시 뒤에 다시 해 주세요.'), { status: 409 });
-
-  const { data: run } = await sb.from('sync_runs').insert({}).select('id').single();
+  // 기록: 시작 함수가 만들어 준 행이 있으면 그걸 쓰고, 없으면(로컬 스크립트) 여기서 만든다. 동시에 두 번 돌지 않게 중단된 기록은 닫고 확인한다.
+  let runId = deps.runId;
+  if (runId == null) {
+    await closeStaleRuns(sb);
+    if (await runningSync(sb)) throw Object.assign(new Error('이미 동기화가 진행 중입니다. 잠시 뒤에 다시 해 주세요.'), { status: 409 });
+    const { data: run, error } = await sb.from('sync_runs').insert({ summary: { trigger } }).select('id').single();
+    if (error || !run) throw new Error(`동기화 기록을 만들지 못했습니다: ${error?.message ?? ''}`);
+    runId = run.id;
+  }
   const summary: Record<string, unknown> = {};
   const problems: string[] = [];
   const skipped: Skipped[] = [];
@@ -99,14 +126,13 @@ export async function runSync(deps: SyncDeps = {}) {
   };
 
   try {
-    // 시트 읽기는 서로 상관없어서 한꺼번에 시작한다(하나씩 읽으면 17개 탭에 20초 넘게 걸려 Netlify 함수 제한 시간을 넘는다).
-    // 읽기 실패는 여기서 던지지 않고 담아 두었다가, 아래 반복에서 그 탭만 건너뛴다.
-    const reads = new Map(TABLES.map((t) => [t.tab, read(t.tab).then((v) => ({ v }), (e: any) => ({ e }))]));
+    // 시트는 요청 두 번으로 한꺼번에 읽는다. 없는 탭은 { error } 로 와서 그 탭만 건너뛴다.
+    // 읽기 자체가 실패하면(할당량·네트워크) 여기서 던져 전체가 실패한다 — DB 는 아직 손대지 않은 상태라 안전하다.
+    const sheets = await readAll(TABLES.map((t) => t.tab));
     for (const t of TABLES) {
-      const got: any = await reads.get(t.tab);
-      if (got.e) { await skip(t, 'read', `탭을 읽지 못했습니다: ${got.e.message}`); continue; }
-      const sheet: { headers: string[]; rows: string[][] } = got.v;
-      const { headers, rows } = sheet;
+      const got = sheets.get(t.tab);
+      if (!got || 'error' in got) { await skip(t, 'read', `탭을 읽지 못했습니다: ${got ? got.error.message : '응답에 없음'}`); continue; }
+      const { headers, rows } = got;
       const idx = (h: string) => headers.indexOf(h);
 
       const missing = t.columns.filter((c) => c.key && idx(c.header) < 0).map((c) => c.header);
@@ -159,12 +185,12 @@ export async function runSync(deps: SyncDeps = {}) {
           return;
         }
         seen.add(String(obj.id));
-        obj.updated_at = new Date().toISOString();
         out.push(obj);
       });
 
       // 실수로 행이 크게 줄었거나 탭이 비었으면 DB 를 비우지 않는다
-      let existing = await selectAll(sb, t.table, t.unitCategory ? 'id,batch_id' : t.deviceCategory ? 'id,item_category' : 'id'); // 1000행이 넘어도 전부(안 그러면 시트에서 지운 행이 DB 에 남고 줄어듦 판정도 틀어진다)
+      // 기존 행을 전체 열로 읽는다(바뀐 행 판정용). 1000행이 넘어도 전부(안 그러면 시트에서 지운 행이 DB 에 남고 줄어듦 판정도 틀어진다)
+      let existing = await selectAll(sb, t.table, '*');
       if (t.unitCategory || t.deviceCategory) existing = existing.filter((r: any) => inTab(t, r)); // 이 탭 분류의 행만
       const have = existing.length;
       if (!deps.force && ((have > 0 && out.length === 0) || (have >= SHRINK_MIN_EXISTING && out.length < have * 0.5))) {
@@ -174,10 +200,14 @@ export async function runSync(deps: SyncDeps = {}) {
 
       addLookup(t.table, out);
 
-      // upsert (덩어리 실패 시 한 줄씩 재시도해 문제 행만 건너뜀)
+      // 바뀐 행(새 행 포함)만 upsert. 덩어리 실패 시 한 줄씩 재시도해 문제 행만 건너뜀
+      const byId = new Map(existing.map((e: any) => [String(e.id), e]));
+      const changed = out.filter((o) => { const e = byId.get(String(o.id)); return !e || !sameRow(t, o, e); });
+      const now = new Date().toISOString();
+      changed.forEach((o) => { o.updated_at = now; });
       let ok = 0;
-      for (let i = 0; i < out.length; i += 200) {
-        const chunk = out.slice(i, i + 200);
+      for (let i = 0; i < changed.length; i += 200) {
+        const chunk = changed.slice(i, i + 200);
         const { error } = await sb.from(t.table).upsert(chunk, { onConflict: 'id' });
         if (!error) { ok += chunk.length; continue; }
         for (const row of chunk) {
@@ -201,7 +231,7 @@ export async function runSync(deps: SyncDeps = {}) {
         try { idsFilled = await fill(t.tab, idx('ID'), pendingIds); }
         catch (e: any) { problems.push(`${t.tab}: ID 칸 채우기 실패 → ${e.message}`); }
       }
-      summary[summaryKey(t)] = { rows: out.length, saved: ok, deleted: stale.length, ...(idsFilled ? { idsFilled } : {}), ...(yearFilled ? { yearFilled } : {}) };
+      summary[summaryKey(t)] = { rows: out.length, changed: changed.length, saved: ok, unchanged: out.length - changed.length, deleted: stale.length, ...(idsFilled ? { idsFilled } : {}), ...(yearFilled ? { yearFilled } : {}) };
     }
     // 개별 장비 탭이 모두 정상으로 읽혔다면, 어느 탭에도 없는 장비(묶음이 지워진 장비 등)를 정리한다
     if (unitTabsDone === TABLES.filter((t) => t.unitCategory).length) {
@@ -215,11 +245,13 @@ export async function runSync(deps: SyncDeps = {}) {
     }
     summary.skipped = skipped;
     summary.problems = problems.slice(0, 50);
-    await sb.from('sync_runs').update({ finished_at: new Date().toISOString(), ok: true, summary }).eq('id', run!.id);
+    summary.trigger = trigger; summary.elapsed_ms = Date.now() - t0;
+    await sb.from('sync_runs').update({ finished_at: new Date().toISOString(), ok: true, summary }).eq('id', runId);
     return { ok: true, summary };
   } catch (e: any) {
     summary.error = e.message; summary.skipped = skipped; summary.problems = problems.slice(0, 50);
-    await sb.from('sync_runs').update({ finished_at: new Date().toISOString(), ok: false, summary }).eq('id', run!.id);
+    summary.trigger = trigger; summary.elapsed_ms = Date.now() - t0;
+    await sb.from('sync_runs').update({ finished_at: new Date().toISOString(), ok: false, summary }).eq('id', runId);
     throw e;
   }
 }

@@ -3,6 +3,7 @@ import { api, useQuery } from '../lib/data.js';
 import { useAuth } from '../lib/auth.jsx';
 import PageHeader from '../components/PageHeader.jsx';
 import DataTable from '../components/DataTable.jsx';
+import { waitForSyncRun } from '../components/SyncStatus.jsx';
 import * as Ic from '../components/Icons.jsx';
 
 /** 관리자: 접속 승인 + 시트 동기화 */
@@ -26,8 +27,14 @@ export default function Admin() {
   async function sync(force = false) {
     if (force && !window.confirm('행이 크게 줄어든 표도 시트 그대로 DB 에 반영합니다. 시트에서 일부러 지운 게 맞나요?')) return;
     setBusy(true); setMsg(''); setError('');
-    try { const r = await api.syncNow({ force }); setMsg(`동기화 완료: ${JSON.stringify(r.summary ?? r)}`); runs.reload(); }
-    catch (e) { setError(e.message); } finally { setBusy(false); }
+    try {
+      const r = await api.syncNow({ force }); // 시작만 → 기록이 끝날 때까지 기다린다
+      const run = r?.runId ? await waitForSyncRun(r.runId) : null;
+      if (r?.throttled) setMsg('방금 동기화했습니다. 1분 뒤에 다시 눌러 주세요.');
+      else if (!run) setMsg('동기화가 아직 끝나지 않았습니다. 잠시 뒤 아래 표를 새로고침하세요.');
+      else setMsg(`${run.ok ? '동기화 완료' : '동기화 실패'}: ${JSON.stringify(Object.fromEntries(Object.entries(run.summary ?? {}).filter(([k]) => k !== 'skipped' && k !== 'problems')))}`);
+      runs.reload();
+    } catch (e) { setError(e.message); } finally { setBusy(false); }
   }
 
   const cols = [

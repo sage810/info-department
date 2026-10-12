@@ -302,5 +302,6 @@ export const demoApi = {
   },
   syncRuns: async () => [],
   syncStatus: async () => null,
+  syncRun: async () => null,
   syncNow: async () => { throw new Error('데모 모드에서는 시트 동기화를 할 수 없습니다.'); },
 };

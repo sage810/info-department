@@ -37,16 +37,37 @@ export async function selectAll(sb: any, table: string, columns = '*'): Promise<
 }
 
 /**
- * 시트 동기화가 도는 중이면 끝날 때까지 기다린다(최대 20초). 동기화는 탭마다 "시트 읽기 → DB 쓰기" 라서, 그 사이에 앱이 시트·DB 를 고치면
- * 동기화가 읽어 둔 옛 값으로 DB 를 덮거나 방금 추가한 행을 지울 수 있다. 앱의 쓰기 함수(cell·row·rental·manual)가 쓰기 전에 부른다.
- * 2분 넘게 안 끝난 기록은 멈춘 것으로 보고 기다리지 않는다.
+ * 시작한 지 이만큼 지나도록 안 끝난 동기화 기록은 "중단됨"으로 본다. 함수가 제한 시간에 걸려 죽으면 finished_at 을 못 적어 영원히
+ * "진행 중"으로 남고, 그러면 쓰기가 매번 기다리고 새 동기화는 거절된다(2026-10 에 실제로 4일간 그랬다). 정상 실행은 몇 초면 끝난다.
  */
-export async function waitForSync(sb: any, maxMs = 20_000) {
+export const STALE_MS = 3 * 60_000;
+
+/** 중단된 것으로 보이는 기록을 실패로 닫는다. 닫은 개수를 돌려준다. 새 동기화 시작·쓰기 대기 전에 부른다. */
+export async function closeStaleRuns(sb: any): Promise<number> {
+  const { data, error } = await sb.from('sync_runs')
+    .update({ finished_at: new Date().toISOString(), ok: false, summary: { error: `${STALE_MS / 60_000}분 안에 끝나지 않아 중단된 것으로 처리` } })
+    .is('finished_at', null).lt('started_at', new Date(Date.now() - STALE_MS).toISOString()).select('id');
+  if (error) throw new Error(error.message);
+  return data?.length ?? 0;
+}
+
+/** 지금 도는(끝나지 않았고 중단된 것도 아닌) 동기화 기록이 있으면 그 id, 없으면 null */
+export async function runningSync(sb: any): Promise<number | null> {
+  const { data } = await sb.from('sync_runs').select('id').is('finished_at', null)
+    .gte('started_at', new Date(Date.now() - STALE_MS).toISOString()).limit(1);
+  return data?.[0]?.id ?? null;
+}
+
+/**
+ * 시트 동기화가 도는 중이면 끝날 때까지 잠깐 기다린다(최대 5초). 동기화는 탭마다 "시트 읽기 → DB 쓰기" 라서, 그 사이에 앱이 시트·DB 를 고치면
+ * 동기화가 읽어 둔 옛 값으로 DB 를 덮거나 방금 추가한 행을 지울 수 있다. 앱의 쓰기 함수(cell·row·rental·manual)가 쓰기 전에 부른다.
+ * 중단된 기록은 먼저 닫아 두므로, 죽은 동기화 때문에 쓰기가 멈추는 일은 없다.
+ */
+export async function waitForSync(sb: any, maxMs = 5_000) {
+  await closeStaleRuns(sb);
   const deadline = Date.now() + maxMs;
   while (Date.now() < deadline) {
-    const { data } = await sb.from('sync_runs').select('id').is('finished_at', null)
-      .gte('started_at', new Date(Date.now() - 2 * 60_000).toISOString()).limit(1);
-    if (!data?.length) return;
+    if (!(await runningSync(sb))) return;
     await new Promise((r) => setTimeout(r, 1000));
   }
 }
