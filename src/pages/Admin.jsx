@@ -84,8 +84,15 @@ export default function Admin() {
               return sk.length ? <span className="memo-lines">{sk.map((x, i) => <span className="memo-line" key={i}><b>{x.tab}</b> <span>{x.detail}</span></span>)}</span> : '—';
             } },
             { key: 'problems', header: '확인할 것', render: (r) => {
+              // 목록은 50건까지만 기록되지만(실패가 앞), 전체 건수와 유형별 건수는 problems_total·problem_counts 에 남는다
               const p = r.summary?.problems ?? [];
-              return p.length ? <span className="memo-lines">{p.slice(0, 5).map((x, i) => <span className="memo-line" key={i}>{x}</span>)}{p.length > 5 && <span className="muted small">외 {p.length - 5}건</span>}</span> : '—';
+              const total = r.summary?.problems_total ?? p.length;
+              const counts = Object.entries(r.summary?.problem_counts ?? {});
+              return p.length ? <span className="memo-lines">
+                {counts.length > 0 && <span className="memo-line"><b>{counts.map(([k, n]) => `${k} ${n}`).join(' · ')}</b></span>}
+                {p.slice(0, 5).map((x, i) => <span className="memo-line" key={i}>{x}</span>)}
+                {total > 5 && <span className="muted small">외 {total - 5}건</span>}
+              </span> : '—';
             } },
             { key: 'summary', header: '요약', render: (r) => <span className="mono small">{JSON.stringify(Object.fromEntries(Object.entries(r.summary ?? {}).filter(([k]) => k !== 'skipped' && k !== 'problems')))}</span> },
           ]} rows={runs.data} loading={runs.loading} error={runs.error} emptyText="아직 동기화 기록이 없습니다." />

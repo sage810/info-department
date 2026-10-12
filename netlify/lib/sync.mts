@@ -23,7 +23,7 @@
  * 보통은 시작 함수가 sync_runs 행을 먼저 만들고(runId) 백그라운드 함수가 이 함수를 부른다. runId 없이 부르면(로컬 스크립트) 여기서 만든다.
  */
 import { createHash } from 'node:crypto';
-import { TABLES, SCHOOL_YEAR, UNIT_TABS, deviceTab } from '../../shared/sheet-schema.js';
+import { TABLES, SCHOOL_YEAR, UNIT_TABS, deviceTab, CRUD_TABLES } from '../../shared/sheet-schema.js';
 import { readTab, readTabs, fillIds, type TabData } from './google-sheets.mts';
 import { adminClient, selectAll, closeStaleRuns, runningSync } from './supabase-admin.mts';
 
@@ -82,7 +82,11 @@ export async function runSync(deps: SyncDeps = {}) {
     runId = run.id;
   }
   const summary: Record<string, unknown> = {};
-  const problems: string[] = [];
+  // "확인할 것": 유형(kind)별로 세고, 기록에는 실패(저장·삭제·ID 채우기)를 앞에 두어 50건 제한에 가려지지 않게 한다
+  const problems: { kind: string; text: string }[] = [];
+  const problemCounts: Record<string, number> = {};
+  const problem = (kind: string, text: string) => { problems.push({ kind, text }); problemCounts[kind] = (problemCounts[kind] ?? 0) + 1; };
+  const problemLines = () => [...problems.filter((x) => x.kind.endsWith('실패')), ...problems.filter((x) => !x.kind.endsWith('실패'))].map((x) => x.text).slice(0, 50);
   const skipped: Skipped[] = [];
   const seenByTable = new Map<string, Set<string>>(); // 같은 표를 채우는 탭들이 ID 를 같이 쓰지 못하게(개별 장비)
   const unitKeep = new Set<string>(); // 개별 장비 탭들에서 살아남은 ID
@@ -153,24 +157,26 @@ export async function runSync(deps: SyncDeps = {}) {
           const raw = idx(c.header) >= 0 ? (r[idx(c.header)] ?? '') : '';
           if (c.ref) {
             const id = resolve(c.ref, raw, year);
-            if (raw && !id) problems.push(`${t.tab}: "${raw}" 을(를) ${c.ref} 에서 못 찾음 (행 ${rowIdx + 2})`);
+            if (raw && !id) problem('참조 못 찾음', `${t.tab}: "${raw}" 을(를) ${c.ref} 에서 못 찾음 (행 ${rowIdx + 2})`);
             if (c.refKey) { obj[c.key] = raw; obj[c.refKey] = id; } else obj[c.key] = id;
           } else if (c.type === 'int') obj[c.key] = toInt(raw);
           else if (c.type === 'date') obj[c.key] = toDate(raw);
           else obj[c.key] = raw || null;
         }
+        // 앱의 "추가"와 같은 기본값(예: 보관함 수량 0). 비워 둔 칸을 null 로 넣으면 not-null 제약에 걸려 그 줄이 매번 저장에 실패한다
+        for (const [k, v] of Object.entries(CRUD_TABLES[t.table]?.defaults ?? {})) if (obj[k] == null) obj[k] = v;
         if (yearCol && obj.school_year == null) { obj.school_year = year; yearFilled++; }
         if (t.deviceCategory) {
           if (!obj.item_category) obj.item_category = t.deviceCategory; // 분류 칸이 비면 이 탭의 분류(앱의 "추가"는 항상 채워 보낸다)
           if (deviceTab(String(obj.item_category)) !== t.tab) {
-            problems.push(`${t.tab}: 행 ${rowIdx + 2} 는 건너뜀 — 물품 분류명 "${obj.item_category}" 은(는) 이 탭이 아니라 ${deviceTab(String(obj.item_category))} 탭에 적어야 합니다`);
+            problem('분류 불일치', `${t.tab}: 행 ${rowIdx + 2} 는 건너뜀 — 물품 분류명 "${obj.item_category}" 은(는) 이 탭이 아니라 ${deviceTab(String(obj.item_category))} 탭에 적어야 합니다`);
             return;
           }
         }
         if (t.unitCategory) {
           const cat = lookup.batchCategory.get(String(obj.batch_id ?? ''));
           if (cat !== t.unitCategory) {
-            problems.push(`${t.tab}: 행 ${rowIdx + 2} 는 건너뜀 — 묶음 "${obj.batch_id ?? ''}" ${cat ? `은(는) "${cat}" 묶음이라 이 탭(${t.unitCategory})에 둘 수 없습니다 (${UNIT_TABS[cat] ?? '개별 장비 탭 없음'} 탭으로 옮기세요)` : '을(를) 보유_* 탭에서 찾지 못했습니다'}`);
+            problem('묶음 없음/불일치', `${t.tab}: 행 ${rowIdx + 2} 는 건너뜀 — 묶음 "${obj.batch_id ?? ''}" ${cat ? `은(는) "${cat}" 묶음이라 이 탭(${t.unitCategory})에 둘 수 없습니다 (${UNIT_TABS[cat] ?? '개별 장비 탭 없음'} 탭으로 옮기세요)` : '을(를) 보유_* 탭에서 찾지 못했습니다'}`);
             return;
           }
         }
@@ -181,7 +187,7 @@ export async function runSync(deps: SyncDeps = {}) {
           obj.id = id;
           pendingIds.push({ rowIdx, id, raw: r });
         } else if (seen.has(String(obj.id))) {
-          problems.push(`${t.tab}: ID "${obj.id}" 가 겹칩니다 — 행 ${rowIdx + 2} 는 건너뜀 (복사한 줄이면 ID 칸을 비우세요)`);
+          problem('ID 겹침', `${t.tab}: ID "${obj.id}" 가 겹칩니다 — 행 ${rowIdx + 2} 는 건너뜀 (복사한 줄이면 ID 칸을 비우세요)`);
           return;
         }
         seen.add(String(obj.id));
@@ -212,7 +218,7 @@ export async function runSync(deps: SyncDeps = {}) {
         if (!error) { ok += chunk.length; continue; }
         for (const row of chunk) {
           const { error: e1 } = await sb.from(t.table).upsert(row, { onConflict: 'id' });
-          if (e1) problems.push(`${t.tab}: 저장 실패 id=${row.id} → ${e1.message}`); else ok++;
+          if (e1) problem('저장 실패', `${t.tab}: 저장 실패 id=${row.id} → ${e1.message}`); else ok++;
         }
       }
 
@@ -222,14 +228,14 @@ export async function runSync(deps: SyncDeps = {}) {
       const stale = existing.map((e: any) => e.id).filter((id: string) => !keep.has(id));
       for (let i = 0; i < stale.length; i += 200) {
         const { error } = await sb.from(t.table).delete().in('id', stale.slice(i, i + 200));
-        if (error) problems.push(`${t.tab}: 삭제 실패 → ${error.message}`);
+        if (error) problem('삭제 실패', `${t.tab}: 삭제 실패 → ${error.message}`);
       }
 
       // 비어 있던 ID 칸을 시트에도 적는다(DB 반영이 끝난 뒤라, 실패해도 다음에 같은 내용이면 같은 ID 가 다시 만들어진다)
       let idsFilled = 0;
       if (pendingIds.length) {
         try { idsFilled = await fill(t.tab, idx('ID'), pendingIds); }
-        catch (e: any) { problems.push(`${t.tab}: ID 칸 채우기 실패 → ${e.message}`); }
+        catch (e: any) { problem('ID 채우기 실패', `${t.tab}: ID 칸 채우기 실패 → ${e.message}`); }
       }
       summary[summaryKey(t)] = { rows: out.length, changed: changed.length, saved: ok, unchanged: out.length - changed.length, deleted: stale.length, ...(idsFilled ? { idsFilled } : {}), ...(yearFilled ? { yearFilled } : {}) };
     }
@@ -239,17 +245,17 @@ export async function runSync(deps: SyncDeps = {}) {
       const orphans = all.map((u: any) => String(u.id)).filter((id: string) => !unitKeep.has(id));
       for (let i = 0; i < orphans.length; i += 200) {
         const { error } = await sb.from('device_units').delete().in('id', orphans.slice(i, i + 200));
-        if (error) problems.push(`개별 장비 정리 실패 → ${error.message}`);
+        if (error) problem('삭제 실패', `개별 장비 정리 실패 → ${error.message}`);
       }
       if (orphans.length) summary.device_units_orphans_deleted = orphans.length;
     }
     summary.skipped = skipped;
-    summary.problems = problems.slice(0, 50);
+    summary.problems = problemLines(); summary.problems_total = problems.length; summary.problem_counts = problemCounts;
     summary.trigger = trigger; summary.elapsed_ms = Date.now() - t0;
     await sb.from('sync_runs').update({ finished_at: new Date().toISOString(), ok: true, summary }).eq('id', runId);
     return { ok: true, summary };
   } catch (e: any) {
-    summary.error = e.message; summary.skipped = skipped; summary.problems = problems.slice(0, 50);
+    summary.error = e.message; summary.skipped = skipped; summary.problems = problemLines(); summary.problems_total = problems.length; summary.problem_counts = problemCounts;
     summary.trigger = trigger; summary.elapsed_ms = Date.now() - t0;
     await sb.from('sync_runs').update({ finished_at: new Date().toISOString(), ok: false, summary }).eq('id', runId);
     throw e;
