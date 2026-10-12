@@ -45,7 +45,7 @@ export async function startSync(sb: any, { force = false, trigger, origin }: { f
   try {
     const res = await fetch(`${origin}/.netlify/functions/sync-sheets-background`, {
       method: 'POST', headers: { 'content-type': 'application/json', [SIGN_HEADER]: signTrigger() },
-      body: JSON.stringify({ runId: run.id, force }), signal: AbortSignal.timeout(15_000),
+      body: JSON.stringify({ runId: run.id, force, trigger }), signal: AbortSignal.timeout(15_000),
     });
     if (!res.ok && res.status !== 202) throw new Error(`백그라운드 함수 응답 ${res.status}`);
   } catch (e: any) {
