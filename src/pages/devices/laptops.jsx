@@ -22,7 +22,7 @@ export function Laptops({ staffOnly }) {
   // 추가 폼: 노트북 묶음을 고르게 한다. 교원용은 사용자가 있고(상태 '사용 중'), 보유 노트북은 사용자 없이 '보유(예비)'로 들어간다.
   const laptopBatches = (batchesQ.data ?? []).filter((b) => b.item_category === '노트북');
   const addFields = [
-    { key: 'batch_id', header: '묶음', required: true, options: laptopBatches.map((b) => [b.id, batchLabel(b)]) },
+    { key: 'batch_id', header: '묶음', hint: '비워도 됨', options: [['', '(묶음 없음)'], ...laptopBatches.map((b) => [b.id, batchLabel(b)])] },
     { key: 'ip_address' },
     ...(staffOnly ? [{ key: 'staff_id', header: '사용자', required: true, hint: '교직원 탭의 성함과 똑같이' }] : []),
     { key: 'location', header: staffOnly ? '위치' : '보유 위치' },
@@ -44,7 +44,7 @@ export function Laptops({ staffOnly }) {
         tableTop={tableTop}
         table="device_units" reload={q.reload} sheetTab={UNIT_TABS.노트북} sheetInTop showCount={false}
         crud={{ add: true, edit: true, remove: true, fields: addFields, rowLabel: unitLabel, addTitle: staffOnly ? '교원용 노트북 추가' : '보유 노트북 추가',
-          defaults: { status: staffOnly ? '사용 중' : '보유(예비)' },
+          defaults: { status: staffOnly ? '사용 중' : '보유(예비)', category: '노트북' }, // category: 묶음이 없을 때 종류(탭)
           confirmDelete: (r) => `'${unitLabel(r)}' 노트북을 삭제할까요?\n- 시트 원본(${UNIT_TABS.노트북} 탭)에서도 이 행이 지워집니다.\n- 노트북 묶음의 개수가 1대 줄어듭니다.\n되돌릴 수 없습니다.` }} />
     </>
   );

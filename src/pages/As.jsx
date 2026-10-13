@@ -61,7 +61,8 @@ function UnitAs({ category }) {
       emptyText="개별 장비가 없습니다. '추가'로 새로 만들 수 있습니다."
       table="device_units" reload={() => { q.reload(); batchesQ.reload(); }} sheetTab={UNIT_TABS[category]} sheetInTop showCount={false}
       crud={{ add: true, edit: true, remove: true, rowLabel: unitLabel, addTitle: '개별 장비 추가',
-        fields: [{ key: 'batch_id', header: '묶음', required: true, options: batches.map((b) => [b.id, batchLabel(b)]) }, ...unitFieldsFor(category)],
+        defaults: { category }, // 묶음이 없을 때 종류(탭)
+        fields: [{ key: 'batch_id', header: '묶음', hint: '비워도 됨', options: [['', '(묶음 없음)'], ...batches.map((b) => [b.id, batchLabel(b)])] }, ...unitFieldsFor(category)],
         confirmDelete: (r) => `'${unitLabel(r)}' 개별 장비를 삭제할까요?\n- 시트 원본(${UNIT_TABS[category]} 탭)에서도 이 행이 지워집니다(전자기기 메뉴에서도 사라짐).\n- 이 장비의 A/S 기록(AS기록 탭)도 같이 지워집니다.\n- 묶음의 개수가 1대 줄어듭니다.\n되돌릴 수 없습니다.` }} />
   );
 }

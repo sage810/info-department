@@ -15,13 +15,29 @@ export async function batchCategory(sb: any, batchId: unknown): Promise<string |
   return data?.item_category ?? null;
 }
 
-/** 새 장비를 적을 탭. 묶음이 없거나 그 분류에 개별 장비 탭이 없으면 사용자에게 보여 줄 오류를 던진다. */
-export async function tabForNewUnit(sb: any, batchId: unknown): Promise<string> {
-  const cat = await batchCategory(sb, batchId);
-  if (!cat) throw bad(`묶음 "${batchId ?? ''}" 을(를) 찾지 못했습니다. 보유_* 탭의 ID 와 똑같이 입력하세요.`);
+/**
+ * 새 장비의 종류와 적을 탭. 묶음 ID 는 선택 — 적었으면 그 묶음의 분류, 안 적었으면 화면이 보낸 종류(category)를 쓴다.
+ * 둘 다 있으면 같아야 한다. 정할 수 없거나 개별 장비 탭이 없는 종류면 사용자에게 보여 줄 오류를 던진다.
+ */
+export async function unitPlaceForNew(sb: any, batchId: unknown, category: unknown): Promise<{ category: string; tab: string }> {
+  const given = String(category ?? '').trim() || null;
+  let cat = given;
+  if (batchId) {
+    const bc = await batchCategory(sb, batchId);
+    if (!bc) throw bad(`묶음 "${batchId}" 을(를) 찾지 못했습니다. 보유_* 탭의 ID 와 똑같이 입력하거나 비워 두세요.`);
+    if (given && bc !== given) throw bad(`"${bc}" 묶음은 ${given} 화면에서 고를 수 없습니다.`);
+    cat = bc;
+  }
+  if (!cat) throw bad('장비 종류를 알 수 없습니다. 묶음을 고르거나 종류별 화면에서 추가하세요.');
   const tab = unitTab(cat);
-  if (!tab) throw bad(`"${cat}" 묶음에는 개별 장비를 적을 수 없습니다. (개별 장비 탭: ${Object.keys(UNIT_TABS).join(' · ')})`);
-  return tab;
+  if (!tab) throw bad(`"${cat}" 에는 개별 장비를 적을 수 없습니다. (개별 장비 탭: ${Object.keys(UNIT_TABS).join(' · ')})`);
+  return { category: cat, tab };
+}
+
+/** 기존 장비의 종류: 장비에 적힌 category, 없으면 묶음의 분류 */
+export async function unitCategory(sb: any, unitId: string): Promise<string | null> {
+  const { data: u } = await sb.from('device_units').select('batch_id,category').eq('id', unitId).maybeSingle();
+  return u?.category ?? (await batchCategory(sb, u?.batch_id));
 }
 
 /** 탭 목록 앞에 first 를 두고 나머지를 뒤에 붙인다(중복 없이). */
@@ -32,8 +48,7 @@ const firstThenRest = (first: string | undefined, all: string[]) => [...(first ?
  * (보통은 첫 탭에서 찾아 시트를 한 번만 읽는다).
  */
 export async function unitTabsToSearch(sb: any, unitId: string): Promise<string[]> {
-  const { data: u } = await sb.from('device_units').select('batch_id').eq('id', unitId).maybeSingle();
-  return firstThenRest(unitTab((await batchCategory(sb, u?.batch_id)) ?? ''), Object.values(UNIT_TABS));
+  return firstThenRest(unitTab((await unitCategory(sb, unitId)) ?? ''), Object.values(UNIT_TABS));
 }
 
 /** 기존 묶음 한 줄이 있을 만한 탭들(자기 분류 탭이 먼저). */

@@ -46,7 +46,7 @@ export function joinUnits(units, devices, staff) {
     const b = byBatch[u.batch_id] ?? {}; const s = byStaff[u.staff_id] ?? {};
     return {
       ...u,
-      manufacturer: b.manufacturer ?? '', model: b.model ?? '', item_category: b.item_category ?? '', usage: b.usage ?? '', capacity: b.capacity ?? null,
+      manufacturer: b.manufacturer ?? '', model: b.model ?? '', item_category: u.category || b.item_category || '', usage: b.usage ?? '', capacity: b.capacity ?? null, // 종류는 장비에 적힌 것이 먼저(묶음 없는 장비)
       usb_type: b.usb_type ?? '', reset_method: b.reset_method ?? '', chromebook_ok: b.chromebook_ok ?? '',
       purchase_date: u.purchase_date || b.purchase_date || '', os: u.os || b.os || '',
       user_name: s.name ?? '', department: s.department ?? '', position: s.position ?? '',

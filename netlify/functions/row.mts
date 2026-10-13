@@ -17,7 +17,7 @@
 import { appendRow, deleteRowById } from '../lib/google-sheets.mts';
 import { requireUser, waitForSync, selectAll, json, errorResponse } from '../lib/supabase-admin.mts';
 import { byTable, CRUD_TABLES, prepareNewRow, deviceTab } from '../../shared/sheet-schema.js';
-import { tabForNewUnit, unitTabsToSearch, deviceTabsToSearch, firstTabThatHas } from '../lib/device-tabs.mts';
+import { unitPlaceForNew, unitTabsToSearch, deviceTabsToSearch, firstTabThatHas } from '../lib/device-tabs.mts';
 
 const bad = (msg: string, status = 400) => Object.assign(new Error(msg), { status });
 
@@ -42,8 +42,12 @@ export default async (req: Request) => {
       const { row, sheet, error } = prepareNewRow(body.table, body.values, existing, lookups);
       if (error || !row) throw bad(error ?? '입력을 확인하세요.');
 
+      // 개별 장비: 종류(묶음의 분류 또는 화면이 보낸 종류)로 탭을 정하고, 종류를 행에도 적는다(시트에는 열이 없음 — 탭이 곧 종류)
+      let tab = t.tab;
+      if (body.table === 'device_units') { const place = await unitPlaceForNew(sb, row.batch_id, body.values?.category); row.category = place.category; tab = place.tab; }
+      if (body.table === 'devices') tab = deviceTab(String(row.item_category ?? ''));
       // 1) 시트 — 머리글 이름으로 칸을 맞춰 한 줄 추가(참조 열은 사람이 적은 자연키 그대로)
-      await appendRow(body.table === 'device_units' ? await tabForNewUnit(sb, row.batch_id) : body.table === 'devices' ? deviceTab(String(row.item_category ?? '')) : t.tab, sheet);
+      await appendRow(tab, sheet);
       // 2) DB
       const { error: dbErr } = await sb.from(body.table).upsert(row, { onConflict: 'id' });
       if (dbErr) throw new Error(`시트에는 추가됐지만 DB 저장 실패: ${dbErr.message} (다음 동기화 때 반영됩니다)`);

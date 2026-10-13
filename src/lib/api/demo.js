@@ -265,6 +265,11 @@ export const demoApi = {
     const lookups = { staff: overlays.staff.load(), students: overlays.students.load(), classrooms: demo.classrooms };
     const { row, error } = prepareNewRow(table, values, list, lookups);
     if (error) throw new Error(error);
+    if (table === 'device_units') { // 서버 row.mts 와 같게: 종류는 묶음의 분류, 묶음이 없으면 화면이 보낸 종류
+      const b = row.batch_id ? overlays.devices.load().find((d) => d.id === row.batch_id) : null;
+      if (row.batch_id && !b) throw new Error(`묶음 "${row.batch_id}" 을(를) 찾지 못했습니다.`);
+      row.category = b?.item_category ?? values.category ?? null;
+    }
     ov.save([...list, row]);
     return row;
   },

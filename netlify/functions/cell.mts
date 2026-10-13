@@ -14,7 +14,7 @@
 import { updateFieldsById } from '../lib/google-sheets.mts';
 import { requireUser, waitForSync, selectAll, json, errorResponse } from '../lib/supabase-admin.mts';
 import { byTable, findEditableColumn, resolveRef, refHint, SCHOOL_YEAR } from '../../shared/sheet-schema.js';
-import { batchCategory, unitTabsToSearch, deviceTabsToSearch, firstTabThatHas } from '../lib/device-tabs.mts';
+import { batchCategory, unitCategory, unitTabsToSearch, deviceTabsToSearch, firstTabThatHas } from '../lib/device-tabs.mts';
 
 export default async (req: Request) => {
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
@@ -33,10 +33,12 @@ export default async (req: Request) => {
 
     // 개별 장비 탭 구조를 깨는 수정은 막는다(동기화가 어긋난 종류의 줄을 건너뛰어 화면에서 사라진다)
     if (table === 'device_units' && field === 'batch_id') {
-      const { data: u } = await sb.from('device_units').select('batch_id').eq('id', id).maybeSingle();
-      const [now, next] = await Promise.all([batchCategory(sb, u?.batch_id), batchCategory(sb, text)]);
-      if (!next) throw Object.assign(new Error(`묶음 "${text}" 을(를) 찾지 못했습니다. 보유_* 탭의 ID 와 똑같이 입력하세요.`), { status: 400 });
-      if (next !== now) throw Object.assign(new Error(`다른 종류(${now ?? '?'} → ${next})의 묶음으로는 바꿀 수 없습니다. 시트에서 이 장비 줄을 ${next} 개별 장비 탭으로 옮기세요.`), { status: 400 });
+      // 묶음 ID 는 비워도 된다(묶음 연결 해제). 적으면 이 장비와 같은 종류의 묶음이어야 한다
+      if (text) {
+        const [now, next] = await Promise.all([unitCategory(sb, id), batchCategory(sb, text)]);
+        if (!next) throw Object.assign(new Error(`묶음 "${text}" 을(를) 찾지 못했습니다. 보유_* 탭의 ID 와 똑같이 입력하거나 비워 두세요.`), { status: 400 });
+        if (now && next !== now) throw Object.assign(new Error(`다른 종류(${now} → ${next})의 묶음으로는 바꿀 수 없습니다. 시트에서 이 장비 줄을 ${next} 개별 장비 탭으로 옮기세요.`), { status: 400 });
+      }
     }
     if (table === 'devices' && field === 'item_category') {
       const { data: cur } = await sb.from('devices').select('item_category').eq('id', id).maybeSingle();

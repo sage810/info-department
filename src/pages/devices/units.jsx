@@ -45,7 +45,7 @@ const U = {
   ip: { key: 'ip_address', header: 'IP주소', className: 'mono', editable: true },
   loc: { key: 'location', header: '위치', editable: true },
   maker: { key: 'manufacturer', header: '제조사', className: 'muted' },
-  model: { key: 'model', header: '모델명', className: 'muted' },
+  model: { key: 'model', header: '모델명', className: 'muted', render: (r) => r.model || r.item_name || '', filterValue: (r) => r.model || r.item_name || '' }, // 묶음이 없으면 물품명
   cap: { key: 'capacity', header: '보관 가능 대수', className: 'num muted' },
   date: { key: 'purchase_date', header: '취득일자', className: 'num', editable: true },
   os: { key: 'os', header: '운영체제', editable: true },
@@ -114,7 +114,7 @@ export function UnitsCard({ category, batches, unitsFor, setUnitsFor, reloadBatc
   const cols = unitColumns(unitsFor === 'all', category, on);
   // 개별 장비 추가: 묶음 하나를 보고 있으면 그 묶음에 붙이고, 유형 전체를 보고 있으면 묶음을 고르게 한다. 묶음의 개수가 바뀌므로 위 묶음 표도 새로 읽는다.
   const unitFields = [
-    ...(batch ? [] : [{ key: 'batch_id', header: '묶음', required: true, options: batches.map((b) => [b.id, batchLabel(b)]) }]),
+    ...(batch ? [] : [{ key: 'batch_id', header: '묶음', hint: '비워도 됨', options: [['', '(묶음 없음)'], ...batches.map((b) => [b.id, batchLabel(b)])] }]),
     ...unitFieldsFor(category),
   ];
   const reloadAll = () => { q.reload(); reloadBatches?.(); };
@@ -144,7 +144,7 @@ export function UnitsCard({ category, batches, unitsFor, setUnitsFor, reloadBatc
             emptyText="개별 장비가 없습니다. '추가'로 새로 만들 수 있습니다."
             table="device_units" reload={reloadAll} sheetTab={UNIT_TABS[category]} sheetInTop showCount={false} noCrumb
             heading={heading} foldId={panelId} folded={!open} onFoldedChange={(f) => setOpen(!f)} tableTop={sortControl}
-            crud={{ add: true, edit: true, remove: true, defaults: batch ? { batch_id: batch.id } : undefined, fields: unitFields, rowLabel: unitLabel, addTitle: '개별 장비 추가',
+            crud={{ add: true, edit: true, remove: true, defaults: batch ? { batch_id: batch.id, category } : { category }, fields: unitFields, rowLabel: unitLabel, addTitle: '개별 장비 추가',
               confirmDelete: (r) => `'${unitLabel(r)}' 개별 장비를 삭제할까요?\n- 시트 원본(${UNIT_TABS[category]} 탭)에서도 이 행이 지워집니다.\n- 이 장비의 A/S 기록(AS기록 탭)도 같이 지워집니다.\n- 묶음의 개수가 1대 줄어듭니다.\n되돌릴 수 없습니다.` }} />
       </div>
     </section>

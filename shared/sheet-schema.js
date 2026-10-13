@@ -111,7 +111,7 @@ export const UNIT_TABS = {
  */
 const unitCommonColumns = (category) => [
   ID,
-  { key: 'batch_id', header: '묶음 ID', note: `보유_${category} 탭의 ID (예: dv-021). 물품 분류명이 "${category}" 인 묶음만 적을 수 있다` },
+  { key: 'batch_id', header: '묶음 ID', note: `비워도 된다. 적으면 보유_${category} 탭의 ID (예: dv-021) — 물품 분류명이 "${category}" 인 묶음만. 적으면 제조사·모델명을 묶음에서 가져오고 묶음 수량이 장비 대수로 계산된다` },
   { key: 'asset_no', header: '관리번호' },
   { key: 'serial_no', header: '분류번호' },
   { key: 'staff_id', header: '사용자', ref: 'staff', note: '비어 있으면 보유(예비)' },
@@ -475,7 +475,7 @@ export const CRUD_TABLES = {
   tablet_cabinets: { prefix: 'tc', required: [], unique: [['school_year', 'classroom_id']], defaults: { tablet_count: 0 } },
   cyber_guardians: { prefix: 'cg', required: ['classroom_id', 'student_id'], unique: [['school_year', 'classroom_id', 'student_id']] },
   devices: { prefix: 'dv', required: ['item_category', 'quantity'] },
-  device_units: { prefix: 'un', required: ['batch_id'], unique: [['asset_no']] },
+  device_units: { prefix: 'un', required: [], unique: [['asset_no']] }, // 종류(category)는 row.mts 가 따로 확인한다(시트 열이 아니라서)
   edutech_items: { prefix: 'ed', required: ['name'], unique: [['name']], defaults: { category: '구독' } },
   inventory_snapshots: { prefix: 'snap', required: ['year', 'band'], unique: [['year', 'band']] },
   as_logs: { prefix: 'log', required: ['item', 'body'] },

@@ -52,13 +52,28 @@ function sameRow(t: { columns: any[] }, obj: Row, e: Row): boolean {
 
 const hash = (s: string) => createHash('sha1').update(s).digest('hex').slice(0, 12);
 
+/**
+ * 날짜 칸을 YYYY-MM-DD 로. 사람이 적은 여러 형식을 받는다 — 숫자 뒤의 "구입" 같은 글자는 무시한다.
+ *   2026-03-02 / 2026.3.2 / 2026/03/02 / 2026년 3월 2일 / 2022.8.23구입 / 23년6월22일 구입(두 자리 연도 → 20xx)
+ *   연·월만 있으면(2026.04 구입 / 2024.9월구입) 그 달 1일.
+ * 못 읽으면 null.
+ */
 export function toDate(v: string): string | null {
   const s = String(v ?? '').trim();
   if (!s) return null;
-  const m = s.match(/^(\d{4})[.\-/년]\s*(\d{1,2})[.\-/월]\s*(\d{1,2})[.일]?\s*$/);
-  if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
-  const d = new Date(s);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+  const ok = (y: number, mo: number, d: number) => { const t = new Date(Date.UTC(y, mo - 1, d)); return t.getUTCFullYear() === y && t.getUTCMonth() === mo - 1 && t.getUTCDate() === d; }; // 4월 31일 같은 없는 날짜는 거른다
+  const fmt = (y: number, mo: number, d: number) => `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  const year = (y: string) => (y.length === 2 ? 2000 + Number(y) : Number(y));
+  const ymd = s.match(/^(\d{4}|\d{2})\s*[.\-/년]\s*(\d{1,2})\s*[.\-/월]\s*(\d{1,2})\s*일?/);
+  if (ymd && ok(year(ymd[1]), +ymd[2], +ymd[3])) return fmt(year(ymd[1]), +ymd[2], +ymd[3]);
+  const ym = s.match(/^(\d{4}|\d{2})\s*[.\-/년]\s*(\d{1,2})\s*월?(?!\s*[.\-/]?\s*\d)/); // 뒤에 일(숫자)이 이어지면 연·월만으로 보지 않는다
+  if (ym && ok(year(ym[1]), +ym[2], 1)) return fmt(year(ym[1]), +ym[2], 1);
+  // 셀 서식이 숫자라 시트가 날짜 일련번호(1899-12-30 부터 센 날 수)로 보여 준 값. 1960~2100 년 범위만
+  if (/^\d{5}$/.test(s) && +s >= 21916 && +s <= 73415) return new Date(Date.UTC(1899, 11, 30) + +s * 86_400_000).toISOString().slice(0, 10);
+  // ISO 시각(2026-03-02T10:00:00Z)만 더 받는다. 다른 형식을 new Date 로 풀면 없는 날짜를 옆 날짜로 바꾸거나(4/31→4/30)
+  // 시간대 때문에 하루 당겨지는(3/2/2026→3/1) 일이 있어, 차라리 못 읽음으로 두고 원문을 비고에 남긴다.
+  if (/^\d{4}-\d{2}-\d{2}T/.test(s)) { const d = new Date(s); if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10); }
+  return null;
 }
 const toInt = (v: string) => { const n = parseInt(String(v).replace(/[^\d-]/g, ''), 10); return Number.isNaN(n) ? null : n; };
 
@@ -113,7 +128,7 @@ export async function runSync(deps: SyncDeps = {}) {
   };
   // DB 에 있는 행이 이 탭에 속하나(탭이 분류별로 나뉜 표만 의미가 있다). 장비는 묶음의 분류로, 묶음은 자기 분류로 정한다.
   type TabDef = { tab: string; table: string; unitCategory?: string; deviceCategory?: string };
-  const inTab = (t: TabDef, r: any) => t.unitCategory ? lookup.batchCategory.get(String(r.batch_id)) === t.unitCategory
+  const inTab = (t: TabDef, r: any) => t.unitCategory ? (r.category ?? lookup.batchCategory.get(String(r.batch_id))) === t.unitCategory
     : t.deviceCategory ? deviceTab(String(r.item_category ?? '')) === t.tab : true;
   // 건너뛴 부모 탭: DB 에 있는 행으로 조회를 대신한다(자식 탭의 참조가 끊기지 않게)
   const lookupFromDb = async (t: TabDef) => {
@@ -151,6 +166,7 @@ export async function runSync(deps: SyncDeps = {}) {
       rows.forEach((r, rowIdx) => {
         if (r.every((v) => !v)) return;
         const obj: Row = {};
+        const badDates: string[] = []; // 날짜로 못 읽은 칸의 원문
         const year = toInt(r[idx('학년도')] ?? '') ?? SCHOOL_YEAR;
         for (const c of t.columns) {
           if (!c.key) continue;
@@ -160,8 +176,13 @@ export async function runSync(deps: SyncDeps = {}) {
             if (raw && !id) problem('참조 못 찾음', `${t.tab}: "${raw}" 을(를) ${c.ref} 에서 못 찾음 (행 ${rowIdx + 2})`);
             if (c.refKey) { obj[c.key] = raw; obj[c.refKey] = id; } else obj[c.key] = id;
           } else if (c.type === 'int') obj[c.key] = toInt(raw);
-          else if (c.type === 'date') obj[c.key] = toDate(raw);
+          else if (c.type === 'date') { obj[c.key] = toDate(raw); if (raw && !obj[c.key]) badDates.push(`${c.header}: ${raw}`); }
           else obj[c.key] = raw || null;
+        }
+        if (badDates.length) {
+          const note = `(${badDates.join(', ')})`;
+          if (t.columns.some((c) => c.key === 'memo')) { const m = String(obj.memo ?? ''); if (!m.includes(note)) obj.memo = m ? `${m} ${note}` : note; }
+          problem('날짜 못 읽음', `${t.tab}: 행 ${rowIdx + 2} 날짜로 못 읽어 ${t.columns.some((c) => c.key === 'memo') ? '비고에 원문을 붙임' : '비워 둠'} — ${badDates.join(', ')}`);
         }
         // 앱의 "추가"와 같은 기본값(예: 보관함 수량 0). 비워 둔 칸을 null 로 넣으면 not-null 제약에 걸려 그 줄이 매번 저장에 실패한다
         for (const [k, v] of Object.entries(CRUD_TABLES[t.table]?.defaults ?? {})) if (obj[k] == null) obj[k] = v;
@@ -174,7 +195,8 @@ export async function runSync(deps: SyncDeps = {}) {
           }
         }
         if (t.unitCategory) {
-          const cat = lookup.batchCategory.get(String(obj.batch_id ?? ''));
+          obj.category = t.unitCategory; // 종류는 탭이 정한다(묶음 ID 는 비워도 된다)
+          const cat = obj.batch_id ? lookup.batchCategory.get(String(obj.batch_id)) : t.unitCategory;
           if (cat !== t.unitCategory) {
             problem('묶음 없음/불일치', `${t.tab}: 행 ${rowIdx + 2} 는 건너뜀 — 묶음 "${obj.batch_id ?? ''}" ${cat ? `은(는) "${cat}" 묶음이라 이 탭(${t.unitCategory})에 둘 수 없습니다 (${UNIT_TABS[cat] ?? '개별 장비 탭 없음'} 탭으로 옮기세요)` : '을(를) 보유_* 탭에서 찾지 못했습니다'}`);
             return;
@@ -208,7 +230,7 @@ export async function runSync(deps: SyncDeps = {}) {
 
       // 바뀐 행(새 행 포함)만 upsert. 덩어리 실패 시 한 줄씩 재시도해 문제 행만 건너뜀
       const byId = new Map(existing.map((e: any) => [String(e.id), e]));
-      const changed = out.filter((o) => { const e = byId.get(String(o.id)); return !e || !sameRow(t, o, e); });
+      const changed = out.filter((o) => { const e: any = byId.get(String(o.id)); return !e || !sameRow(t, o, e) || (t.unitCategory && e.category !== o.category); });
       const now = new Date().toISOString();
       changed.forEach((o) => { o.updated_at = now; });
       let ok = 0;
