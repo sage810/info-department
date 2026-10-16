@@ -62,6 +62,8 @@ export default async (req: Request) => {
       if (body.table === 'devices') {
         const { count } = await sb.from('device_units').select('id', { count: 'exact', head: true }).eq('batch_id', id);
         if (count) throw bad(`이 묶음에 개별 장비가 ${count}대 연결돼 있어 지울 수 없습니다. 개별 장비를 먼저 삭제하세요.`);
+        const { count: cabs } = await sb.from('tablet_cabinets').select('id', { count: 'exact', head: true }).eq('batch_id', id);
+        if (cabs) throw bad(`이 묶음을 쓰는 태블릿 충전함이 ${cabs}대 있어 지울 수 없습니다. 충전함의 묶음을 먼저 바꾸거나 비우세요.`);
       }
       // 연쇄: 이 교직원의 Goedu 교사 계정 행(시트)을 먼저 지운다
       if (body.table === 'staff') {

@@ -65,6 +65,8 @@ function ClassTable({ query, columns, sheet, sheetInSearchRow = false, text, sea
   );
 }
 
+/** 충전함 표의 "모델" 드롭다운: 태블릿 충전함 묶음(보유_태블릿보관함 탭) 목록 */
+export const cabinetBatchOptions = (batches) => [['', '(모델 미지정)'], ...batches.map((b) => [b.id, `${[b.manufacturer, b.model].filter(Boolean).join(' ') || b.id}${b.capacity ? ` · ${b.capacity}대용` : ''}${b.purchase_date ? ` · ${String(b.purchase_date).slice(0, 7)}` : ''}`])];
 /** 추가 폼/삭제 확인에서 학급을 부르는 말. 새로 추가한 행(아직 조회 전)은 입력한 "학년-반" 글자를 그대로 쓴다. */
 const classLabel = (r) => (r.grade ? `${r.grade}학년 ${r.class_no}반` : String(r.classroom_id ?? ''));
 /** 반별 태블릿 보관함 추가 폼의 칸 — 반별 관리 화면과 전자기기 → 반별 태블릿 보관함 화면이 같이 쓴다. */
@@ -114,20 +116,26 @@ function Cyber() {
       searchKeys={['homeroom', 'name', 'student_no']} />
   );
 }
-function Cabinets() {
+/** 반별 태블릿 충전함. 반별 관리와 전자기기 → 태블릿 충전함 → 학급별이 같은 데이터를 쓴다. withBatch: 모델(묶음)·분류번호 열을 보인다. */
+export function Cabinets({ withBatch = false }) {
   const [on, setOn] = useState({});
+  const batches = useQuery(api.devices).data?.filter((b) => b.item_category === '태블릿보관함') ?? [];
+  const batchCols = withBatch ? [
+    { key: 'batch_id', header: '모델', render: (r, ctx) => <EditSelectCell ctx={ctx} row={r} field="batch_id" ariaLabel="모델(묶음)" options={cabinetBatchOptions(batches)} />, filterValue: (r) => `${r.manufacturer} ${r.model}` },
+    { key: 'serial_no', header: '분류번호', className: 'mono', editable: true },
+  ] : [];
   return (
     <ClassTable query={api.tabletCabinets} sheet="태블릿보관함" sheetInSearchRow filter={(r) => !r.is_spare} table="tablet_cabinets" noGradeFilter
       tableTop={<ChipToggle options={CLASS_EXTRA} on={on} onChange={setOn} />}
       crud={{ add: true, edit: true, remove: true, required: ['classroom_id'], fields: CABINET_FIELDS, addTitle: '반별 태블릿 보관함 추가',
         rowLabel: (r) => `${classLabel(r)} 태블릿 보관함` }}
-      columns={[{ key: 'location', header: '위치', editable: true }, G, C,
+      columns={[{ key: 'location', header: '위치', editable: true }, G, C, ...batchCols,
         { key: 'tablet_count', header: '태블릿 수량', className: 'num', render: (r) => `${r.tablet_count}대`, editable: true },
         { key: 'password', header: '비번', className: 'mono', editable: true },
         dated('memo', '비고'),
         ...CLASS_EXTRA.filter((c) => on[c.key]),
       ]}
-      searchKeys={['location', 'password', 'memo']} />
+      searchKeys={['location', 'password', 'memo', 'model', 'manufacturer', 'serial_no']} />
   );
 }
 

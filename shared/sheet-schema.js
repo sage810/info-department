@@ -123,6 +123,15 @@ const unitCommonColumns = (category) => [
   { key: 'memo', header: '비고' },
   { key: 'serial_number', header: '시리얼번호', note: '제조사 시리얼(분류번호와 다름)' },
 ];
+/** 보유 묶음 탭 중 일부 분류에만 더 둘 열(그 탭 끝에만 생기고, 값은 devices 표의 열에 들어간다). 지금은 태블릿 충전함만. */
+const DEVICE_EXTRA_COLUMNS = {
+  태블릿보관함: [
+    { key: 'unit_price', header: '취득단가(원)', type: 'int' },
+    { key: 'gsms_registered', header: 'GSMS 등재여부', note: 'O / X', options: ['O', 'X'], loose: true },
+    { key: 'as_contact', header: 'A/S 연락처', note: '예: 1577-0243' },
+    { key: 'in_use', header: '사용여부', note: 'o / x', options: ['o', 'x'], loose: true },
+  ],
+};
 const UNIT_EXTRA_COLUMNS = {
   노트북: [
     { key: 'item_kind', header: '물품구분' },
@@ -214,6 +223,8 @@ export const TABLES = [
       { key: 'tablet_count', header: '태블릿 수량', type: 'int' },
       { key: 'password', header: '비번' },
       { key: 'memo', header: '기타 메모', note: '여유(예비) 보관함만. 반별 보관함의 비고는 AS기록 탭(항목: 충전함 비고)' },
+      { key: 'batch_id', header: '묶음 ID', note: '어느 모델인지: 보유_태블릿보관함 탭의 ID (예: dv-031). 제조사·모델명·충전가능대수는 묶음에서 가져온다' },
+      { key: 'serial_no', header: '분류번호' },
     ],
   },
   {
@@ -267,6 +278,7 @@ export const TABLES = [
       { key: 'os', header: '운영체제', note: '예: Windows 11 Pro' },
       { key: 'disposed_on', header: '처분일', type: 'date', note: '폐기한 묶음만. 적으면 보유 현황에서 빠짐' },
       { key: 'memo', header: '비고' },
+      ...(DEVICE_EXTRA_COLUMNS[category] ?? []),
     ],
   })),
   // 개별 장비: 한 대마다 한 줄. 묶음 ID 는 보유_* 탭의 ID 열 값을 그대로 적는다. (예전 "노트북 IP대장")
@@ -396,7 +408,9 @@ export const GUIDE_MARKER = '탭 목차';
 // 같은 표를 가리키는 탭이 여럿이면(device_units) 첫 탭의 정의가 들어간다 — 열은 같지만 .tab 은 믿지 말고 unitTab 을 쓴다.
 export const byTable = Object.fromEntries(TABLES.slice().reverse().map((t) => [t.table, t]));
 // 개별 장비는 탭마다 열이 조금 다르다. 앱·서버(추가·셀 수정)가 보는 표 정의는 모든 탭의 열 합집합이고, 어느 탭에 쓸지는 unitTab 이 정한다.
-byTable.device_units = { ...byTable.device_units, columns: [...new Map(TABLES.filter((t) => t.table === 'device_units').flatMap((t) => t.columns).map((c) => [c.key, c])).values()] };
+const unionColumns = (table) => [...new Map(TABLES.filter((t) => t.table === table).flatMap((t) => t.columns).map((c) => [c.key, c])).values()];
+byTable.device_units = { ...byTable.device_units, columns: unionColumns('device_units') };
+byTable.devices = { ...byTable.devices, columns: unionColumns('devices') }; // 태블릿 충전함 묶음의 추가 열까지
 
 /** 학번 = 학년(1) + 반(2) + 번호(2) → 예: 2학년 10반 11번 = 21011 */
 export function studentNo(s) {

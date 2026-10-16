@@ -1,7 +1,7 @@
 // Supabase 모드 API: 0001_schema.sql 의 v_* 뷰를 읽는다. 쓰기(대여·메뉴얼·셀 편집·행 추가/삭제)는 Netlify 함수(시트 먼저, DB 다음).
 import { supabase, callFunction } from '../supabase.js';
 import { classroomKey } from '../../../shared/sheet-schema.js';
-import { homeroomInfoByKey, EMPTY_HOMEROOM_INFO, joinDevices, joinUnits, joinClassRows, FILE_BUCKET, fileToAttachment, today } from './common.js';
+import { homeroomInfoByKey, EMPTY_HOMEROOM_INFO, joinDevices, joinCabinets, joinUnits, joinClassRows, FILE_BUCKET, fileToAttachment, today } from './common.js';
 
 /* ---------------- Supabase ---------------- */
 // Supabase 는 한 번에 최대 1000행만 돌려주고 넘는 부분은 오류 없이 잘라 버린다 → 1000행씩 이어서 전부 읽는다.
@@ -34,9 +34,9 @@ export const supaApi = {
     return rows.map((r) => ({ ...r, ...(infoByKey[classroomKey(r)] ?? EMPTY_HOMEROOM_INFO) }));
   },
   tabletCabinets: async () => {
-    const [rows, staff] = await Promise.all([sel('v_tablet_cabinets', [{ col: 'is_spare' }, { col: 'grade' }, { col: 'class_no' }]), sel('staff')]);
+    const [rows, staff, devices] = await Promise.all([sel('v_tablet_cabinets', [{ col: 'is_spare' }, { col: 'grade' }, { col: 'class_no' }]), sel('staff'), sel('devices')]);
     const infoByKey = homeroomInfoByKey(staff);
-    return rows.map((r) => ({ ...r, ...(r.is_spare ? EMPTY_HOMEROOM_INFO : (infoByKey[classroomKey(r)] ?? EMPTY_HOMEROOM_INFO)) }));
+    return joinCabinets(rows, devices).map((r) => ({ ...r, ...(r.is_spare ? EMPTY_HOMEROOM_INFO : (infoByKey[classroomKey(r)] ?? EMPTY_HOMEROOM_INFO)) }));
   },
   cyberGuardians: () => sel('v_cyber_guardians', [{ col: 'grade' }, { col: 'class_no' }]),
   classHomerooms: async () => {
@@ -44,8 +44,8 @@ export const supaApi = {
     return joinClassRows(classrooms, guardians, staff);
   },
   devices: async () => {
-    const [devices, units] = await Promise.all([sel('devices', [{ col: 'purchase_date', asc: false }]), sel('device_units')]);
-    return joinDevices(devices, units);
+    const [devices, units, cabinets] = await Promise.all([sel('devices', [{ col: 'purchase_date', asc: false }]), sel('device_units'), sel('tablet_cabinets')]);
+    return joinDevices(devices, units, cabinets);
   },
   deviceUnits: async () => {
     const [units, devices, staff] = await Promise.all([sel('device_units', [{ col: 'ip_address' }]), sel('devices'), sel('staff')]);

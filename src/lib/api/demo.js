@@ -3,7 +3,7 @@ import { loadDemoProfiles, saveDemoProfiles } from '../auth.jsx';
 import demo from '../../data/demo.js';
 import { putDemoFile, getDemoFile, deleteDemoFiles } from '../demoFiles.js';
 import { studentNo, findEditableColumn, resolveRef, refHint, SCHOOL_YEAR, classroomKey, formatAttachments, parseAttachments, CRUD_TABLES, prepareNewRow } from '../../../shared/sheet-schema.js';
-import { homeroomInfoByKey, EMPTY_HOMEROOM_INFO, joinDevices, joinUnits, joinClassRows, fileToAttachment, removedAttachmentIds, today } from './common.js';
+import { homeroomInfoByKey, EMPTY_HOMEROOM_INFO, joinDevices, joinCabinets, joinUnits, joinClassRows, fileToAttachment, removedAttachmentIds, today } from './common.js';
 
 /* ---------------- 데모 저장소 ----------------
  * 표마다 localStorage 오버레이 하나. 처음 읽을 때 src/data/demo.js 값으로 채우고,
@@ -108,21 +108,22 @@ export const demoApi = {
   },
   tabletCabinets: async () => {
     const infoByKey = homeroomInfoByKey(overlays.staff.load());
-    return overlays.tablet_cabinets.load().map((k) => {
+    return joinCabinets(overlays.tablet_cabinets.load().map((k) => {
       const c = k.classroom_id ? classById[k.classroom_id] : null;
       return {
         id: k.id, school_year: k.school_year, grade: c?.grade ?? null, class_no: c?.class_no ?? null,
         location: k.location ?? c?.location ?? '', tablet_count: k.tablet_count, password: k.password, memo: k.memo, is_spare: !c,
+        batch_id: k.batch_id ?? null, serial_no: k.serial_no ?? null,
         ...(c ? (infoByKey[classroomKey(c)] ?? EMPTY_HOMEROOM_INFO) : EMPTY_HOMEROOM_INFO),
       };
-    });
+    }), overlays.devices.load());
   },
   cyberGuardians: async () => { const studentById = studentByIdFresh(); return overlays.cyber_guardians.load().map((g) => {
     const c = classById[g.classroom_id] ?? {}; const s = studentById[g.student_id] ?? {};
     return { id: g.id, school_year: c.school_year ?? null, grade: c.grade ?? null, class_no: c.class_no ?? null, number: s.number ?? null, name: s.name ?? '', student_no: s.grade ? studentNo(s) : '' };
   }); },
   classHomerooms: async () => joinClassRows(demo.classrooms, await demoApi.cyberGuardians(), overlays.staff.load()),
-  devices: async () => joinDevices(overlays.devices.load(), overlays.device_units.load()),
+  devices: async () => joinDevices(overlays.devices.load(), overlays.device_units.load(), overlays.tablet_cabinets.load()),
   deviceUnits: async () => joinUnits(overlays.device_units.load(), overlays.devices.load(), overlays.staff.load()),
   laptops: async () => (await demoApi.deviceUnits()).filter((u) => u.item_category === '노트북'),
   // AS기록(날짜 기록 한 줄씩). 학급 기록에는 학년·반을 붙인다 — 화면 칸으로 묶는 건 asLogs.js
@@ -282,6 +283,8 @@ export const demoApi = {
     if (table === 'devices') {
       const n = overlays.device_units.load().filter((u) => u.batch_id === id).length;
       if (n) throw new Error(`이 묶음에 개별 장비가 ${n}대 연결돼 있어 지울 수 없습니다. 개별 장비를 먼저 삭제하세요.`);
+      const k = overlays.tablet_cabinets.load().filter((c) => c.batch_id === id).length;
+      if (k) throw new Error(`이 묶음을 쓰는 태블릿 충전함이 ${k}대 있어 지울 수 없습니다. 충전함의 묶음을 먼저 바꾸거나 비우세요.`);
     }
     if (table === 'students') {
       for (const t of ['goedu_student_accounts', 'cyber_guardians']) overlays[t].save(overlays[t].load().filter((r) => r.student_id !== id));
