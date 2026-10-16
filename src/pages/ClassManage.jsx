@@ -65,8 +65,26 @@ function ClassTable({ query, columns, sheet, sheetInSearchRow = false, text, sea
   );
 }
 
-/** 충전함 표의 "모델" 드롭다운: 태블릿 충전함 묶음(보유_태블릿보관함 탭) 목록 */
-export const cabinetBatchOptions = (batches) => [['', '(모델 미지정)'], ...batches.map((b) => [b.id, `${[b.manufacturer, b.model].filter(Boolean).join(' ') || b.id}${b.capacity ? ` · ${b.capacity}대용` : ''}${b.purchase_date ? ` · ${String(b.purchase_date).slice(0, 7)}` : ''}`])];
+/** 충전함 한 대의 모델 정보 열(학급별·여유 표). 기본 열 + "함께 볼 정보" 칩으로 켜는 열. 모두 그 줄의 칸이라 표에서 바로 고친다. */
+export const CABINET_SPEC_CHIPS = [
+  { key: 'usage', header: '용도' }, { key: 'capacity', header: '충전 가능 대수' }, { key: 'purchase_date', header: '취득일자' },
+  { key: 'unit_price', header: '취득단가(원)' }, { key: 'gsms_registered', header: 'GSMS 등재' }, { key: 'as_contact', header: 'A/S 연락처' },
+  { key: 'usb_type', header: 'USB줄 타입' }, { key: 'reset_method', header: '초기화 방법' }, { key: 'chromebook_ok', header: '크롬북 가능 여부' },
+];
+const SPEC_NUM = new Set(['capacity', 'unit_price', 'purchase_date']);
+export const cabinetSpecColumns = (on) => [
+  { key: 'manufacturer', header: '제조사', editable: true },
+  { key: 'model', header: '모델명', editable: true },
+  { key: 'serial_no', header: '분류번호', className: 'mono', editable: true },
+  { key: 'in_use', header: '사용여부', render: (r, ctx) => <EditSelectCell ctx={ctx} row={r} field="in_use" ariaLabel="사용여부" options={[['', '—'], ['o', 'o (사용)'], ['x', 'x (미사용)']]} />, filterValue: (r) => r.in_use ?? '' },
+  ...CABINET_SPEC_CHIPS.filter((c) => on[c.key]).map((c) => ({ ...c, editable: true, className: SPEC_NUM.has(c.key) ? 'num' : undefined })),
+];
+/** 충전함 추가 폼의 모델 정보 칸 */
+export const CABINET_SPEC_FIELDS = [
+  { key: 'usage', options: ['학급용', '특별교실용', '기타'], other: true }, { key: 'manufacturer' }, { key: 'model' }, { key: 'serial_no' },
+  { key: 'capacity', hint: '예: 30 (30대용)' }, { key: 'purchase_date' }, { key: 'in_use', options: [['o', 'o (사용)'], ['x', 'x (미사용)']] },
+  { key: 'unit_price' }, { key: 'gsms_registered', options: [['O', 'O (등재)'], ['X', 'X (미등재)']] }, { key: 'as_contact' },
+];
 /** 추가 폼/삭제 확인에서 학급을 부르는 말. 새로 추가한 행(아직 조회 전)은 입력한 "학년-반" 글자를 그대로 쓴다. */
 const classLabel = (r) => (r.grade ? `${r.grade}학년 ${r.class_no}반` : String(r.classroom_id ?? ''));
 /** 반별 태블릿 보관함 추가 폼의 칸 — 반별 관리 화면과 전자기기 → 반별 태블릿 보관함 화면이 같이 쓴다. */
@@ -116,20 +134,16 @@ function Cyber() {
       searchKeys={['homeroom', 'name', 'student_no']} />
   );
 }
-/** 반별 태블릿 충전함. 반별 관리와 전자기기 → 태블릿 충전함 → 학급별이 같은 데이터를 쓴다. withBatch: 모델(묶음)·분류번호 열을 보인다. */
-export function Cabinets({ withBatch = false }) {
+/** 반별 태블릿 충전함. 반별 관리와 전자기기 → 태블릿 충전함 → 학급별이 같은 데이터를 쓴다. withSpec: 모델 정보 열(제조사·모델명 등)을 보인다. */
+export function Cabinets({ withSpec = false }) {
   const [on, setOn] = useState({});
-  const batches = useQuery(api.devices).data?.filter((b) => b.item_category === '태블릿보관함') ?? [];
-  const batchCols = withBatch ? [
-    { key: 'batch_id', header: '모델', render: (r, ctx) => <EditSelectCell ctx={ctx} row={r} field="batch_id" ariaLabel="모델(묶음)" options={cabinetBatchOptions(batches)} />, filterValue: (r) => `${r.manufacturer} ${r.model}` },
-    { key: 'serial_no', header: '분류번호', className: 'mono', editable: true },
-  ] : [];
+  const specCols = withSpec ? cabinetSpecColumns(on) : [];
   return (
     <ClassTable query={api.tabletCabinets} sheet="태블릿보관함" sheetInSearchRow filter={(r) => !r.is_spare} table="tablet_cabinets" noGradeFilter
-      tableTop={<ChipToggle options={CLASS_EXTRA} on={on} onChange={setOn} />}
-      crud={{ add: true, edit: true, remove: true, required: ['classroom_id'], fields: CABINET_FIELDS, addTitle: '반별 태블릿 보관함 추가',
+      tableTop={<ChipToggle options={withSpec ? [...CABINET_SPEC_CHIPS, ...CLASS_EXTRA] : CLASS_EXTRA} on={on} onChange={setOn} />}
+      crud={{ add: true, edit: true, remove: true, required: ['classroom_id'], fields: withSpec ? [...CABINET_FIELDS, ...CABINET_SPEC_FIELDS] : CABINET_FIELDS, addTitle: '반별 태블릿 보관함 추가',
         rowLabel: (r) => `${classLabel(r)} 태블릿 보관함` }}
-      columns={[{ key: 'location', header: '위치', editable: true }, G, C, ...batchCols,
+      columns={[{ key: 'location', header: '위치', editable: true }, G, C, ...specCols,
         { key: 'tablet_count', header: '태블릿 수량', className: 'num', render: (r) => `${r.tablet_count}대`, editable: true },
         { key: 'password', header: '비번', className: 'mono', editable: true },
         dated('memo', '비고'),

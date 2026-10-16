@@ -4,7 +4,6 @@ import { UNIT_STATUSES, UNIT_TABS } from '../../../shared/sheet-schema.js';
 import DataTable, { ChipToggle, EditSelectCell } from '../../components/DataTable.jsx';
 import * as Ic from '../../components/Icons.jsx';
 
-const CAT_LABEL = { 태블릿보관함: '태블릿 충전함' }; // 화면에 보이는 이름(탭 이름과 같게)
 export const unitLabel = (r) => r.asset_no || r.serial_no || r.ip_address || '개별 장비';
 export const batchLabel = (b) => `${[b.usage, b.manufacturer, b.model].filter(Boolean).join(' ') || b.item_category} (${b.id})`;
 
@@ -13,7 +12,6 @@ const UNIT_SORTS = [['ip', 'IP주소순'], ['asset', '관리번호순'], ['date'
 // 태블릿·태블릿 충전함은 IP·사용자가 중심이 아니라서 제조사·모델명·(취득일자 | 보관 가능 대수)로 정렬한다
 const UNIT_SORTS_FOR = {
   태블릿: [['maker', '제조사순'], ['model', '모델명순']],
-  태블릿보관함: [['maker', '제조사순'], ['model', '모델명순'], ['capacity', '보관 가능 대수순']],
 };
 const ipKey = (ip) => String(ip ?? '').split('.').map((p) => p.padStart(3, '0')).join('.');
 export function sortUnits(list, by) {
@@ -22,17 +20,10 @@ export function sortUnits(list, by) {
   return list.slice().sort((a, b) => k(a).localeCompare(k(b), 'ko', { numeric: true }));
 }
 /** 개별 장비 표의 열 — 개별 장비 카드와 노트북 화면이 같은 표를 보여 준다. showModel: 유형 전체를 볼 땐 묶음을 알 수 있게 모델명 열을 넣는다. */
-/** 태블릿 충전함의 사양 열 — 표 위 띠의 "함께 볼 정보" 칩으로 켠다. 묶음(보유_* 탭)의 값이라 여기선 보기만 하고, 고치는 건 보유 현황의 묶음 표에서. */
-const CABINET_SPEC_COLS = [
-  { key: 'usb_type', header: 'USB줄 타입' },
-  { key: 'reset_method', header: '초기화 방법' },
-  { key: 'chromebook_ok', header: '크롬북 가능 여부' },
-];
 /** 유형별 "함께 볼 정보" 칩(켜면 그 열이 보인다) */
 export const UNIT_CHIPS = {
   노트북: [{ key: 'asset_no', header: '관리번호' }, { key: 'serial_no', header: '분류번호' }, { key: 'item_kind', header: '물품구분' }, { key: 'item_name', header: '물품명' }],
   태블릿: [{ key: 'serial_no', header: '분류번호' }],
-  태블릿보관함: [{ key: 'serial_no', header: '분류번호' }, ...CABINET_SPEC_COLS],
 };
 // 개별 장비 표의 열 조각
 const U = {
@@ -46,7 +37,6 @@ const U = {
   loc: { key: 'location', header: '위치', editable: true },
   maker: { key: 'manufacturer', header: '제조사', className: 'muted' },
   model: { key: 'model', header: '모델명', className: 'muted', render: (r) => r.model || r.item_name || '', filterValue: (r) => r.model || r.item_name || '' }, // 묶음이 없으면 물품명
-  cap: { key: 'capacity', header: '보관 가능 대수', className: 'num muted' },
   date: { key: 'purchase_date', header: '취득일자', className: 'num', editable: true },
   os: { key: 'os', header: '운영체제', editable: true },
   status: { key: 'status', header: '상태', render: (r, ctx) => <EditSelectCell ctx={ctx} row={r} field="status" ariaLabel="상태" options={UNIT_STATUSES.map((s) => [s, s])} />, filterValue: (r) => r.status ?? '' },
@@ -65,7 +55,6 @@ export const unitColumns = (showModel, category, on = {}, { stock = false } = {}
     return [U.ip, ...opt(U.asset), ...opt(U.cls), U.sn, ...opt(U.kind), ...opt(U.itemName), U.user, U.loc, ...batchCols(U.model), U.date, U.os, U.memo];
   }
   if (category === '태블릿') return [U.asset, ...opt(U.cls), U.sn, ...batchCols(U.maker, U.model), U.memo];
-  if (category === '태블릿보관함') return [U.asset, ...opt(U.cls), ...batchCols(U.maker, U.model, U.cap), ...CABINET_SPEC_COLS.filter((c) => on[c.key]), U.memo];
   return [U.asset, U.cls, U.user, U.ip, U.loc, ...batchCols(U.model), U.date, U.os, U.status, U.memo];
 };
 /** 개별 장비 추가 폼의 칸 — 표에 보이는 칸과 같게 */
@@ -73,7 +62,6 @@ export function unitFieldsFor(category) {
   const keys = {
     노트북: ['ip_address', 'asset_no', 'serial_no', 'serial_number', 'item_kind', 'item_name', 'staff_id', 'location', 'purchase_date', 'os', 'memo'],
     태블릿: ['asset_no', 'serial_no', 'serial_number', 'memo'],
-    태블릿보관함: ['asset_no', 'serial_no', 'memo'],
   }[category] ?? ['asset_no', 'serial_no', 'staff_id', 'ip_address', 'location', 'purchase_date', 'os', 'status', 'memo'];
   return keys.map((k) => ({
     staff_id: { key: k, header: '사용자', hint: '비우면 보유(예비)' },
@@ -104,7 +92,7 @@ export function UnitsCard({ category, batches, unitsFor, setUnitsFor, reloadBatc
   if (!unitsFor) {
     return (
       <div className="table-tools units-open">
-        <button type="button" className="btn btn-secondary" onClick={() => setUnitsFor('all')}>전체 {CAT_LABEL[category] ?? category} 개별 장비 보기</button>
+        <button type="button" className="btn btn-secondary" onClick={() => setUnitsFor('all')}>전체 {category} 개별 장비 보기</button>
       </div>
     );
   }
@@ -129,10 +117,10 @@ export function UnitsCard({ category, batches, unitsFor, setUnitsFor, reloadBatc
     <div className="units-head">
       <h2 className="section-title" style={{ margin: 0 }}>
         <button type="button" className="tg" aria-expanded={open} aria-controls={panelId} onClick={() => setOpen((o) => !o)}>
-          <Ic.ChevronDown />{titlePrefix}{batch ? `${batch.usage} ${batch.manufacturer} ${batch.model}` : `전체 ${CAT_LABEL[category] ?? category}`}
+          <Ic.ChevronDown />{titlePrefix}{batch ? `${batch.usage} ${batch.manufacturer} ${batch.model}` : `전체 ${category}`}
         </button>
       </h2>
-      {unitsFor !== 'all' && <button type="button" className="btn btn-secondary sm" onClick={() => setUnitsFor('all')}>전체 {CAT_LABEL[category] ?? category} 보기</button>}
+      {unitsFor !== 'all' && <button type="button" className="btn btn-secondary sm" onClick={() => setUnitsFor('all')}>전체 {category} 보기</button>}
     </div>
   );
   return (

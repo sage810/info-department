@@ -11,20 +11,17 @@ const BATCH_COLS = {
   '데스크톱': { base: ['usage', 'item_category', 'manufacturer', 'model', 'quantity', 'purchase_date', 'os', 'memo'], extra: ['place', 'disposed_on'] },
   '노트북': { base: ['usage', 'item_category', 'manufacturer', 'model', 'quantity', 'memo'], extra: ['purchase_date', 'os', 'disposed_on'] },
   '태블릿': { base: ['usage', 'item_category', 'manufacturer', 'model', 'quantity', 'purchase_date', 'memo'], extra: ['os', 'disposed_on'] },
-  '태블릿보관함': { base: ['usage', 'manufacturer', 'model', 'quantity', 'capacity', 'purchase_date', 'in_use', 'memo'], extra: ['usb_type', 'reset_method', 'chromebook_ok', 'unit_price', 'gsms_registered', 'as_contact', 'disposed_on'] },
 };
 const BATCH_HEAD = {
   usage: '용도', item_category: '물품 분류명', place: '설치 장소', manufacturer: '제조사', model: '모델명', quantity: '수량', units: '개별 장비',
-  capacity: '충전 가능 대수', unit_price: '취득단가(원)', gsms_registered: 'GSMS 등재', as_contact: 'A/S 연락처', in_use: '사용여부', usb_type: 'USB줄 타입', reset_method: '초기화 방법', chromebook_ok: '크롬북 가능 여부', purchase_date: '취득일자', os: '운영체제', disposed_on: '처분일', memo: '비고',
+  capacity: '보관 가능 대수', usb_type: 'USB줄 타입', reset_method: '초기화 방법', chromebook_ok: '크롬북 가능 여부', purchase_date: '취득일자', os: '운영체제', disposed_on: '처분일', memo: '비고',
 };
-// 태블릿 충전함은 개별 장비 대신 충전함 한 대씩(태블릿 충전함 → 학급별·여유)이 묶음에 연결된다
-const UNITS_FOR = new Set(['데스크톱', '노트북', '태블릿']);
+const UNITS_FOR = new Set(['데스크톱', '노트북', '태블릿']); // 태블릿 충전함은 묶음이 없다(전자기기 → 태블릿 충전함)
 // 추가 폼에 넣을 칸(유형별). 물품 분류명은 이 화면의 유형으로 정해지므로 칸 없이 defaults 로 보낸다.
 const ADD_KEYS = {
   '데스크톱': ['usage', 'place', 'manufacturer', 'model', 'quantity', 'purchase_date', 'os', 'memo'],
   '노트북': ['usage', 'manufacturer', 'model', 'quantity', 'purchase_date', 'os', 'memo'],
   '태블릿': ['usage', 'manufacturer', 'model', 'quantity', 'purchase_date', 'os', 'memo'],
-  '태블릿보관함': ['usage', 'manufacturer', 'model', 'quantity', 'capacity', 'purchase_date', 'in_use', 'unit_price', 'gsms_registered', 'as_contact', 'usb_type', 'reset_method', 'chromebook_ok', 'memo'],
 };
 const addField = (k) => ({
   usage: { key: k, options: DEVICE_USAGES, other: true },
@@ -32,9 +29,6 @@ const addField = (k) => ({
   chromebook_ok: { key: k, options: CHROMEBOOK_OK },
   place: { key: k, options: DEVICE_PLACES },
   quantity: { key: k, required: true, hint: '개수 (개별 장비·충전함을 연결하면 자동 계산)' },
-  capacity: { key: k, hint: '예: 30 (30대용), 40 (40대용)' },
-  in_use: { key: k, options: [['o', 'o (사용)'], ['x', 'x (미사용)']] },
-  gsms_registered: { key: k, options: [['O', 'O (등재)'], ['X', 'X (미등재)']] },
 }[k] ?? { key: k });
 
 export function InventoryBatches({ category }) {
@@ -51,20 +45,16 @@ export function InventoryBatches({ category }) {
     if (k === 'item_category') return { key: k, header: BATCH_HEAD[k], className: 'muted', filterValue: (r) => r.item_category ?? '' };
     if (k === 'place') return { key: k, header: BATCH_HEAD[k], render: (r, ctx) => <EditSelectCell ctx={ctx} row={r} field="place" ariaLabel="설치 장소" options={[['', '—'], ...DEVICE_PLACES.map((p) => [p, p])]} />, filterValue: (r) => r.place ?? '' };
     if (k === 'usb_type') return { key: k, header: BATCH_HEAD[k], render: (r, ctx) => <EditSelectCell ctx={ctx} row={r} field="usb_type" ariaLabel="USB줄 타입" options={USB_TYPES} other />, filterValue: (r) => r.usb_type ?? '' };
-    if (k === 'in_use') return { key: k, header: BATCH_HEAD[k], render: (r, ctx) => <EditSelectCell ctx={ctx} row={r} field="in_use" ariaLabel="사용여부" options={[['', '—'], ['o', 'o (사용)'], ['x', 'x (미사용)']]} />, filterValue: (r) => r.in_use ?? '' };
-    if (k === 'gsms_registered') return { key: k, header: BATCH_HEAD[k], render: (r, ctx) => <EditSelectCell ctx={ctx} row={r} field="gsms_registered" ariaLabel="GSMS 등재" options={[['', '—'], ['O', 'O (등재)'], ['X', 'X (미등재)']]} />, filterValue: (r) => r.gsms_registered ?? '' };
     if (k === 'chromebook_ok') return { key: k, header: BATCH_HEAD[k], render: (r, ctx) => <EditSelectCell ctx={ctx} row={r} field="chromebook_ok" ariaLabel="크롬북 가능 여부" options={[['', '—'], ...CHROMEBOOK_OK.map((v) => [v, v])]} />, filterValue: (r) => r.chromebook_ok ?? '' };
     if (k === 'quantity') return {
       key: k, header: BATCH_HEAD[k], className: 'num', editable: true, canEdit: (r) => !r.unit_count,
       // 개별 장비가 연결된 묶음은 수량이 개별 장비 개수로 계산된다 — 수량을 누르면 그 묶음의 개별 n대 보기
-      render: (r) => (r.unit_count && category === '태블릿보관함'
-        ? `${r.effective_quantity}대` // 충전함 수(학급별·여유 화면에서 이 묶음을 고른 줄)
-        : r.unit_count
+      render: (r) => (r.unit_count
         ? <button type="button" className="qty-link" onClick={() => setUnitsFor(r.id)} title={'개별 ' + r.unit_count + '대 보기'} aria-label={r.effective_quantity + '대, 개별 ' + r.unit_count + '대 보기'}>{r.effective_quantity}대</button>
         : `${r.quantity ?? 0}대`),
       filterValue: (r) => String(r.effective_quantity ?? ''),
     };
-    return { key: k, header: BATCH_HEAD[k], editable: true, className: k.endsWith('_date') || k.endsWith('_on') || k === 'capacity' || k === 'unit_price' ? 'num' : undefined };
+    return { key: k, header: BATCH_HEAD[k], editable: true, className: k.endsWith('_date') || k.endsWith('_on') || k === 'capacity' ? 'num' : undefined };
   };
   const cols = [...cfg.base, ...cfg.extra.filter((k) => on[k])].map(col);
   const chips = cfg.extra.map((k) => ({ key: k, header: BATCH_HEAD[k] }));

@@ -13,7 +13,6 @@ import * as Ic from '../components/Icons.jsx';
 const TABS = [
   { to: '/as/laptop', label: '노트북 A/S', icon: Ic.Laptop },
   { to: '/as/tablet', label: '태블릿 A/S', icon: Ic.Tablet },
-  { to: '/as/cabinet', label: '태블릿 충전함 A/S', icon: Ic.BatteryCharging },
   { to: '/as/class', label: '반별 A/S', icon: Ic.Wrench },
 ];
 
@@ -26,7 +25,7 @@ export default function As() {
           <Route index element={<Navigate to="laptop" replace />} />
           <Route path="laptop" element={<UnitAs category="노트북" />} />
           <Route path="tablet" element={<UnitAs category="태블릿" />} />
-          <Route path="cabinet" element={<UnitAs category="태블릿보관함" />} />
+          <Route path="cabinet" element={<Navigate to="/as/class" replace />} />
           <Route path="class" element={<ClassAs />} />
           <Route path="*" element={<Navigate to="laptop" replace />} />
         </Routes>

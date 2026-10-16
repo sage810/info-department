@@ -32,7 +32,7 @@ export const TV_BRANDS = ['삼성', 'DW SUMMUS', 'LG'];
 export const DEVICE_USAGES = ['학생용', '교원용', '직원용', '기타'];
 export const DEVICE_CATEGORIES = ['데스크톱', '노트북', '태블릿', '태블릿보관함', '기타'];
 export const DEVICE_PLACES = ['컴퓨터실습실', '컴퓨터실습실 외'];
-/** 태블릿 충전함 사양의 선택지(보유_태블릿보관함 탭의 묶음 열) */
+/** 태블릿 충전함 사양의 선택지(태블릿보관함 탭) */
 export const CHROMEBOOK_OK = ['가능', '불가'];
 export const USB_TYPES = ['USB-C', 'Micro USB', 'Lightning'];
 export const UNIT_STATUSES = ['사용 중', '보유(예비)', '수리 중', '폐기'];
@@ -103,7 +103,6 @@ export const UNIT_TABS = {
   데스크톱: '전자기기_개별_데스크톱', // 순서 = 홈 시트 바로가기 칩·시트 탭 순서(보유_* 탭과 같은 순서)
   노트북: '전자기기_개별_노트북',
   태블릿: '전자기기_개별_태블릿',
-  태블릿보관함: '전자기기_개별_태블릿보관함',
 };
 /**
  * 개별 장비 탭의 열. 공통 열은 모든 탭이 같고, 종류마다 더 둘 열은 UNIT_EXTRA_COLUMNS 에 둔다(그 탭에만 생기고, 값은 같은 DB 표의 열에 들어간다).
@@ -123,15 +122,6 @@ const unitCommonColumns = (category) => [
   { key: 'memo', header: '비고' },
   { key: 'serial_number', header: '시리얼번호', note: '제조사 시리얼(분류번호와 다름)' },
 ];
-/** 보유 묶음 탭 중 일부 분류에만 더 둘 열(그 탭 끝에만 생기고, 값은 devices 표의 열에 들어간다). 지금은 태블릿 충전함만. */
-const DEVICE_EXTRA_COLUMNS = {
-  태블릿보관함: [
-    { key: 'unit_price', header: '취득단가(원)', type: 'int' },
-    { key: 'gsms_registered', header: 'GSMS 등재여부', note: 'O / X', options: ['O', 'X'], loose: true },
-    { key: 'as_contact', header: 'A/S 연락처', note: '예: 1577-0243' },
-    { key: 'in_use', header: '사용여부', note: 'o / x', options: ['o', 'x'], loose: true },
-  ],
-};
 const UNIT_EXTRA_COLUMNS = {
   노트북: [
     { key: 'item_kind', header: '물품구분' },
@@ -143,14 +133,14 @@ const UNIT_EXTRA_COLUMNS = {
 export const unitTab = (category) => UNIT_TABS[category];
 
 /**
- * 보유 묶음(devices) 탭: 묶음의 물품 분류명 → 시트 탭. 네 분류 밖(기타·직접 입력한 분류)은 모두 보유_기타 탭에 적는다.
+ * 보유 묶음(devices) 탭: 묶음의 물품 분류명 → 시트 탭. 세 분류 밖(기타·직접 입력한 분류)은 모두 보유_기타 탭에 적는다.
+ * 태블릿 충전함은 묶음이 없다 — 충전함 한 대가 태블릿보관함 탭의 한 줄이고, 모델별 대수는 앱이 센다.
  * 묶음은 자기 분류와 같은 탭에만 적을 수 있다. 앱·서버는 "이 묶음은 어느 탭에 있나"를 항상 deviceTab 으로 구한다 — byTable.devices.tab 은 쓰지 않는다.
  */
 export const DEVICE_TABS = {
   데스크톱: '보유_데스크톱',
   노트북: '보유_노트북',
   태블릿: '보유_태블릿',
-  태블릿보관함: '보유_태블릿보관함',
   기타: '보유_기타',
 };
 export const deviceTab = (category) => DEVICE_TABS[category] ?? DEVICE_TABS.기타;
@@ -214,6 +204,8 @@ export const TABLES = [
     ],
   },
   {
+    // 태블릿 충전함 한 대가 한 줄(반별·여유 모두). 모델 정보도 줄마다 적는다 — 전자기기 → 태블릿 충전함 → 현황은 제조사 + 모델명 + 취득일자로 묶어 센다.
+    // 줄은 고정이다: 학년이 바뀌면 줄을 새로 만들지 말고 학년-반만 고친다.
     table: 'tablet_cabinets', tab: '태블릿보관함', label: '태블릿 충전함(보관함)',
     columns: [
       ID,
@@ -223,8 +215,19 @@ export const TABLES = [
       { key: 'tablet_count', header: '태블릿 수량', type: 'int' },
       { key: 'password', header: '비번' },
       { key: 'memo', header: '기타 메모', note: '여유(예비) 보관함만. 반별 보관함의 비고는 AS기록 탭(항목: 충전함 비고)' },
-      { key: 'batch_id', header: '묶음 ID', note: '어느 모델인지: 보유_태블릿보관함 탭의 ID (예: dv-031). 제조사·모델명·충전가능대수는 묶음에서 가져온다' },
       { key: 'serial_no', header: '분류번호' },
+      { key: 'usage', header: '용도', note: '학급용 / 특별교실용 / 기타', options: ['학급용', '특별교실용', '기타'], loose: true },
+      { key: 'manufacturer', header: '제조사' },
+      { key: 'model', header: '모델명' },
+      { key: 'capacity', header: '충전 가능 대수', type: 'int', note: '예: 30 (30대용), 40 (40대용)' },
+      { key: 'purchase_date', header: '취득일자', type: 'date' },
+      { key: 'unit_price', header: '취득단가(원)', type: 'int' },
+      { key: 'gsms_registered', header: 'GSMS 등재여부', note: 'O / X', options: ['O', 'X'], loose: true },
+      { key: 'as_contact', header: 'A/S 연락처', note: '예: 1577-0243' },
+      { key: 'in_use', header: '사용여부', note: 'o / x', options: ['o', 'x'], loose: true },
+      { key: 'usb_type', header: 'USB줄 타입', note: '예: USB-C', options: USB_TYPES, loose: true },
+      { key: 'reset_method', header: '초기화 방법' },
+      { key: 'chromebook_ok', header: '크롬북 가능 여부', note: '가능 / 불가', options: CHROMEBOOK_OK },
     ],
   },
   {
@@ -264,7 +267,7 @@ export const TABLES = [
       ID,
       { key: 'usage', header: '용도', note: DEVICE_USAGES.join(' / ') + ' (그 외는 직접 입력)', options: DEVICE_USAGES, loose: true },
       category === '기타'
-        ? { key: 'item_category', header: '물품 분류명', note: '기타 또는 직접 입력한 분류(예: 프린터). 데스크톱·노트북·태블릿·태블릿보관함은 각자의 탭에 적는다', options: ['기타'], loose: true }
+        ? { key: 'item_category', header: '물품 분류명', note: '기타 또는 직접 입력한 분류(예: 프린터). 데스크톱·노트북·태블릿은 각자의 탭에, 태블릿 충전함은 태블릿보관함 탭에 적는다', options: ['기타'], loose: true }
         : { key: 'item_category', header: '물품 분류명', note: `이 탭은 "${category}" 묶음만 적는다. 비우면 "${category}" 로 처리`, options: [category] },
       { key: 'place', header: '설치 장소', note: '데스크톱만: ' + DEVICE_PLACES.join(' / '), options: DEVICE_PLACES },
       { key: 'manufacturer', header: '제조사' },
@@ -278,7 +281,6 @@ export const TABLES = [
       { key: 'os', header: '운영체제', note: '예: Windows 11 Pro' },
       { key: 'disposed_on', header: '처분일', type: 'date', note: '폐기한 묶음만. 적으면 보유 현황에서 빠짐' },
       { key: 'memo', header: '비고' },
-      ...(DEVICE_EXTRA_COLUMNS[category] ?? []),
     ],
   })),
   // 개별 장비: 한 대마다 한 줄. 묶음 ID 는 보유_* 탭의 ID 열 값을 그대로 적는다. (예전 "노트북 IP대장")
@@ -410,7 +412,7 @@ export const byTable = Object.fromEntries(TABLES.slice().reverse().map((t) => [t
 // 개별 장비는 탭마다 열이 조금 다르다. 앱·서버(추가·셀 수정)가 보는 표 정의는 모든 탭의 열 합집합이고, 어느 탭에 쓸지는 unitTab 이 정한다.
 const unionColumns = (table) => [...new Map(TABLES.filter((t) => t.table === table).flatMap((t) => t.columns).map((c) => [c.key, c])).values()];
 byTable.device_units = { ...byTable.device_units, columns: unionColumns('device_units') };
-byTable.devices = { ...byTable.devices, columns: unionColumns('devices') }; // 태블릿 충전함 묶음의 추가 열까지
+byTable.devices = { ...byTable.devices, columns: unionColumns('devices') };
 
 /** 학번 = 학년(1) + 반(2) + 번호(2) → 예: 2학년 10반 11번 = 21011 */
 export function studentNo(s) {

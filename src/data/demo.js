@@ -116,11 +116,13 @@ export const tablet_cabinets = classrooms.map((c) => ({
   tablet_count: c.grade === 2 && c.class_no === 5 ? 31 : 28 + Math.floor(rc() * 5),
   password: c.grade === 2 && c.class_no === 5 ? '1432' : String(1000 + Math.floor(rc() * 9000)),
   memo: '', // 반별 보관함의 비고는 AS기록(항목 충전함 비고)
+  // 모델 정보는 충전함 줄마다(전자기기 → 태블릿 충전함 → 현황이 제조사·모델명·취득일자로 묶어 센다)
+  usage: '학급용', manufacturer: '에이텍', model: 'TC-30', capacity: 30, purchase_date: '2022-03-02', in_use: 'o', usb_type: 'USB-C', reset_method: '전원 버튼 10초 누름', chromebook_ok: '가능',
 }));
 tablet_cabinets.push(
-  { id: 'cab-spare-1', school_year: SCHOOL_YEAR, classroom_id: null, location: '4층 정보과학부 창고', tablet_count: 12, password: '2580', memo: '예비 보관함 A (전입생·고장 교체용)' },
-  { id: 'cab-spare-2', school_year: SCHOOL_YEAR, classroom_id: null, location: '4층 정보과학부 창고', tablet_count: 0, password: '1379', memo: '예비 보관함 B (비어 있음, 충전 케이블 2개 불량)' },
-  { id: 'cab-spare-3', school_year: SCHOOL_YEAR, classroom_id: null, location: '2층 도서관', tablet_count: 10, password: '4680', memo: '도서관 수업용' },
+  { id: 'cab-spare-1', school_year: SCHOOL_YEAR, classroom_id: null, usage: '기타', manufacturer: '포유디지털', model: 'FD-32', capacity: 32, purchase_date: '2024-03-05', in_use: 'o', usb_type: 'USB-C', reset_method: '뒷면 리셋 버튼', chromebook_ok: '불가', location: '4층 정보과학부 창고', tablet_count: 12, password: '2580', memo: '예비 보관함 A (전입생·고장 교체용)' },
+  { id: 'cab-spare-2', school_year: SCHOOL_YEAR, classroom_id: null, usage: '기타', manufacturer: '포유디지털', model: 'FD-32', capacity: 32, purchase_date: '2024-03-05', in_use: 'o', usb_type: 'USB-C', reset_method: '뒷면 리셋 버튼', chromebook_ok: '불가', location: '4층 정보과학부 창고', tablet_count: 0, password: '1379', memo: '예비 보관함 B (비어 있음, 충전 케이블 2개 불량)' },
+  { id: 'cab-spare-3', school_year: SCHOOL_YEAR, classroom_id: null, usage: '기타', manufacturer: '포유디지털', model: 'FD-32', capacity: 32, purchase_date: '2024-03-05', in_use: 'o', usb_type: 'USB-C', reset_method: '뒷면 리셋 버튼', chromebook_ok: '불가', location: '2층 도서관', tablet_count: 10, password: '4680', memo: '도서관 수업용' },
 );
 
 /* ---------------- 사이버 지킴이 ---------------- */
@@ -194,20 +196,11 @@ const DEV = [
   ['dv-031', '기타', '데스크톱', '', '삼성', 'DM300', 11, null, '2019-03-02', 'Windows 10 Pro', '', '방송실·보건실 등'],
   ['dv-032', '기타', '노트북', '', 'LG', '그램 15', 1, null, '2019-03-05', 'Windows 10 Pro', '', '방송실'],
   ['dv-033', '기타', '기타', '', '네이버클라우드', '클라우드 PC', 16, null, '2019-03-02', '', '', '클라우드 PC 계정'],
-  ['dv-034', '학생용', '태블릿보관함', '', '에이텍', 'TC-30', 30, 30, '2022-03-02', '', '', '반별 충전함'],
-  ['dv-035', '학생용', '태블릿보관함', '', '포유디지털', 'FD-32', 3, 32, '2024-03-05', '', '', '예비 충전함'],
   ['dv-036', '교원용', '노트북', '', '삼성', '노트북5', 6, null, '2018-03-05', 'Windows 10', '2025-11-20', '2025년 폐기'],
   ['dv-037', '기타', '데스크톱', '', '삼성', 'DM300', 4, null, '2018-03-02', 'Windows 7', '2025-10-15', '2025년 폐기'],
 ];
-// 태블릿 충전함 묶음의 사양(USB줄 타입·초기화 방법·크롬북 가능 여부)
-const CABINET_SPEC = {
-  'dv-034': ['USB-C', '전원 버튼 10초 누름', '가능'],
-  'dv-035': ['USB-C', '뒷면 리셋 버튼', '불가'],
-};
-export const devices = DEV.map(([id, usage, item_category, place, manufacturer, model, quantity, capacity, purchase_date, os, disposed_on, memo]) => {
-  const [usb_type = null, reset_method = null, chromebook_ok = null] = CABINET_SPEC[id] ?? [];
-  return { id, usage, item_category, place, manufacturer, model, quantity, capacity, usb_type, reset_method, chromebook_ok, purchase_date, os, disposed_on, memo };
-});
+export const devices = DEV.map(([id, usage, item_category, place, manufacturer, model, quantity, capacity, purchase_date, os, disposed_on, memo]) => (
+  { id, usage, item_category, place, manufacturer, model, quantity, capacity, usb_type: null, reset_method: null, chromebook_ok: null, purchase_date, os, disposed_on, memo }));
 
 /* ---------------- 전자기기 개별 장비 (노트북 IP대장) ----------------
  * 묶음 ID 로 위 표에 연결된다. 사용자가 비어 있으면 보유(예비). */

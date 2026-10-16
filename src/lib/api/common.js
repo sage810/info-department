@@ -28,26 +28,34 @@ export const EMPTY_HOMEROOM_INFO = { homeroom: '', homeroom_location: '', homero
  * 전자기기 묶음에 "실제 수량"을 붙인다. 개별 장비가 연결된 묶음은 폐기 아닌 개별 장비 개수가 수량이고
  * (unit_count > 0), 없으면 수량 칸 그대로. 보유 현황 집계표는 effective_quantity 만 읽는다.
  */
-export function joinDevices(devices, units, cabinets = []) {
+export function joinDevices(devices, units) {
   const countByBatch = {};
   for (const u of units) if (u.status !== '폐기') countByBatch[u.batch_id] = (countByBatch[u.batch_id] ?? 0) + 1;
   const anyByBatch = {};
   for (const u of units) anyByBatch[u.batch_id] = (anyByBatch[u.batch_id] ?? 0) + 1;
-  // 태블릿 충전함 묶음: 그 묶음을 가리키는 충전함(태블릿보관함 탭의 줄) 수가 수량이다
-  for (const k of cabinets) if (k.batch_id) { countByBatch[k.batch_id] = (countByBatch[k.batch_id] ?? 0) + 1; anyByBatch[k.batch_id] = (anyByBatch[k.batch_id] ?? 0) + 1; }
   return devices.map((d) => {
     const unit_count = anyByBatch[d.id] ?? 0;
     return { ...d, unit_count, effective_quantity: unit_count ? (countByBatch[d.id] ?? 0) : (d.quantity ?? 0) };
   });
 }
-/** 태블릿 충전함 한 대에 그 묶음(모델)의 제조사·모델명·충전가능대수·취득일자·사용여부·A/S 연락처를 붙인다. 묶음이 없으면 빈 값. */
-export function joinCabinets(rows, devices) {
-  const byBatch = Object.fromEntries(devices.map((d) => [d.id, d]));
-  return rows.map((k) => {
-    const b = byBatch[k.batch_id] ?? {};
-    return { ...k, manufacturer: b.manufacturer ?? '', model: b.model ?? '', capacity: b.capacity ?? null, purchase_date: b.purchase_date ?? '',
-      in_use: b.in_use ?? '', as_contact: b.as_contact ?? '', usb_type: b.usb_type ?? '', reset_method: b.reset_method ?? '', chromebook_ok: b.chromebook_ok ?? '' };
-  });
+/**
+ * 태블릿 충전함 현황: 충전함 줄들을 제조사 + 모델명 + 취득일자로 묶어 센다(학급별·여유 대수, 용도·사용여부·단가·GSMS·A/S 는 묶음 안의 값들).
+ * 묶음 안에서 값이 서로 다르면 " / " 로 이어 보여 준다(예: 사용여부 o / x).
+ */
+export function cabinetModels(cabinets) {
+  const groups = new Map();
+  for (const k of cabinets) {
+    const key = [k.manufacturer ?? '', k.model ?? '', k.purchase_date ?? ''].join('|');
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(k);
+  }
+  const join = (list, f) => [...new Set(list.map(f).filter((v) => v != null && v !== ''))].join(' / ');
+  return [...groups.entries()].map(([key, list]) => ({
+    id: key, manufacturer: list[0].manufacturer ?? '', model: list[0].model ?? '', purchase_date: list[0].purchase_date ?? '',
+    count: list.length, class_count: list.filter((k) => !k.is_spare).length, spare_count: list.filter((k) => k.is_spare).length,
+    usage: join(list, (k) => k.usage), capacity: join(list, (k) => k.capacity), in_use: join(list, (k) => k.in_use), unit_price: join(list, (k) => k.unit_price),
+    gsms_registered: join(list, (k) => k.gsms_registered), as_contact: join(list, (k) => k.as_contact),
+  })).sort((a, b) => b.count - a.count || a.model.localeCompare(b.model, 'ko'));
 }
 /** 개별 장비에 묶음(제조사/모델/분류/용도·충전함 사양, 취득일자·OS 는 비었을 때만)과 사용자(성함/부서/직위)를 붙인다. */
 export function joinUnits(units, devices, staff) {
